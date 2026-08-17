@@ -1,0 +1,36 @@
+- name: Collect installed RPM packages from destination server
+  hosts: "{{ host_group }}"
+  gather_facts: false
+  strategy: free
+  vars:
+    package_list: []
+  tasks:
+    - name: Collect installed RPM list
+      command: rpm -qa --queryformat '%{NAME}|%{VERSION}|%{RELEASE}|%{ARCH}|%{INSTALLTIME}\n'
+      become: no
+      register: rpms
+      ignore_errors: yes
+
+    - name: Parse RPM output into JSON
+      set_fact:
+        package_list: "{{ package_list + [{'name': item.split('|')[0], 'version': item.split('|')[1], 'release': item.split('|')[2], 'arch': item.split('|')[3], 'installed_at': item.split('|')[4] if item.split('|')|length > 4 else ''}] }}"
+      loop: "{{ rpms.stdout_lines | default([]) }}"
+      when: rpms is succeeded and rpms.stdout_lines is defined
+
+    - name: Update installed packages to DB
+      environment:
+        no_proxy: localhost,127.0.0.1
+      uri:
+        url: "http://<ServerEndpoints_APP>/updatepackages"
+        method: POST
+        body: {
+                "hostname": "{{ inventory_hostname }}",
+                "packages": "{{ package_list }}"
+                }
+        body_format: json
+        return_content: yes
+      delegate_to: 127.0.0.1
+      when: package_list | length > 0
+
+    - debug:
+        var: package_list

@@ -17,6 +17,7 @@ export default defineConfig({
       '/updateaction': { target: 'http://localhost:61008', changeOrigin: true },
       '/updateremarks': { target: 'http://localhost:61008', changeOrigin: true },
       '/updateonboard': { target: 'http://localhost:61008', changeOrigin: true },
+      '/updatepackages': { target: 'http://localhost:61008', changeOrigin: true },
     },
   },
 })

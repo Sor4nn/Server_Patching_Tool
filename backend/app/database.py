@@ -71,6 +71,21 @@ CREATE TABLE IF NOT EXISTS patch_runs (
     finished_at TEXT,
     created_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS host_packages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    host_id INTEGER NOT NULL REFERENCES hosts(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    version TEXT,
+    release TEXT,
+    arch TEXT,
+    epoch TEXT,
+    source TEXT,
+    installed_at TEXT,
+    created_at TEXT NOT NULL,
+    UNIQUE(host_id, name, version, release, arch)
+);
+CREATE INDEX IF NOT EXISTS idx_host_packages_host ON host_packages(host_id);
 """
 
 

@@ -43,6 +43,8 @@ export const api = {
   updateHost: (id: number, body: Record<string, unknown>) =>
     request<{ success: boolean; host: Host }>(`/hosts/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
   deleteHost: (id: number) => request<{ success: boolean }>(`/hosts/${id}`, { method: 'DELETE' }),
+  hostPackages: (id: number, search = '') =>
+    request<{ success: boolean; packages: HostPackage[]; count: number }>(`/hosts/${id}/packages${search ? `?search=${encodeURIComponent(search)}` : ''}`),
 
   listGroups: () => request<{ success: boolean; groups: HostGroup[] }>('/host-groups'),
   createGroup: (body: Record<string, unknown>) =>
@@ -68,6 +70,7 @@ export const api = {
     }),
   listRuns: () => request<{ success: boolean; runs: PatchRun[] }>('/patching/runs'),
   getRun: (id: number) => request<{ success: boolean; run: PatchRun }>(`/patching/runs/${id}`),
+  refreshRun: (id: number) => request<{ success: boolean; run: PatchRun }>(`/patching/runs/${id}/refresh`, { method: 'POST' }),
 }
 
-import type { DashboardStats, Host, HostGroup, PatchRun, User, AwxTemplate, AwxJob } from './types'
+import type { DashboardStats, Host, HostGroup, PatchRun, User, AwxTemplate, AwxJob, HostPackage } from './types'

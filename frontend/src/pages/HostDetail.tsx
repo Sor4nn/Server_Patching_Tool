@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../App'
-import type { Host, HostGroup } from '../types'
+import type { Host, HostGroup, HostPackage } from '../types'
 
 export default function HostDetail() {
   const { id } = useParams()
@@ -11,6 +11,9 @@ export default function HostDetail() {
   const isAdmin = user?.is_admin === 1
   const [host, setHost] = useState<Host | null>(null)
   const [groups, setGroups] = useState<HostGroup[]>([])
+  const [packages, setPackages] = useState<HostPackage[]>([])
+  const [pkgSearch, setPkgSearch] = useState('')
+  const [pkgCount, setPkgCount] = useState(0)
   const [error, setError] = useState('')
   const [form, setForm] = useState({ friendly_name: '', os_version: '', group_id: '', remarks: '' })
   const [saved, setSaved] = useState(false)
@@ -27,7 +30,19 @@ export default function HostDetail() {
       })
     }).catch((e) => setError(e instanceof Error ? e.message : 'Failed to load'))
     api.listGroups().then((res) => setGroups(res.groups)).catch(() => {})
+    api.hostPackages(Number(id)).then((res) => {
+      setPackages(res.packages)
+      setPkgCount(res.count)
+    }).catch(() => {})
   }, [id])
+
+  useEffect(() => {
+    if (!id) return
+    const timer = setTimeout(() => {
+      api.hostPackages(Number(id), pkgSearch).then((res) => setPackages(res.packages)).catch(() => {})
+    }, 250)
+    return () => clearTimeout(timer)
+  }, [pkgSearch, id])
 
   const save = async () => {
     if (!host) return
@@ -123,6 +138,40 @@ export default function HostDetail() {
               <button className="btn btn-primary" onClick={save}>Save Changes</button>
               {saved && <span className="badge badge-green">Saved ✓</span>}
             </div>
+          </div>
+        )}
+      </div>
+
+      <div className="card mt">
+        <div className="flex-between mb">
+          <h2 className="card-title" style={{ margin: 0 }}>Installed RPMs ({pkgCount})</h2>
+          <input
+            className="search-input"
+            placeholder="Search package…"
+            value={pkgSearch}
+            onChange={(e) => setPkgSearch(e.target.value)}
+          />
+        </div>
+        {packages.length === 0 ? (
+          <p className="muted">No installed packages recorded. Run the <span className="mono">collect_packages</span> playbook against this host to populate RPM data.</p>
+        ) : (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Package</th><th>Version</th><th>Release</th><th>Arch</th><th>Installed</th></tr>
+              </thead>
+              <tbody>
+                {packages.map((p) => (
+                  <tr key={p.id}>
+                    <td className="mono">{p.name}</td>
+                    <td className="mono">{p.version || '-'}</td>
+                    <td className="mono">{p.release || '-'}</td>
+                    <td>{p.arch || '-'}</td>
+                    <td className="muted">{p.installed_at || '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>

@@ -3,13 +3,14 @@ import { api } from '../api'
 import { useAuth } from '../App'
 import type { AwxJob, AwxTemplate, Host, PatchRun } from '../types'
 
-function HealthDot({ health }: { health: { success: boolean; version?: string } | null }) {
+function HealthDot({ health }: { health: { success: boolean; version?: string; auth_mode?: string } | null }) {
   if (!health) return <span className="badge badge-gray">Checking…</span>
   if (!health.success) return <span className="badge badge-red">AWX Unreachable</span>
   return (
     <span className="flex">
       <span className="status-pill dot-green" />
       <span className="badge badge-green">AWX v{health.version || '?'} Online</span>
+      {health.auth_mode && <span className="badge badge-blue">{health.auth_mode === 'token' ? 'Bearer Token' : 'Basic Auth'}</span>}
     </span>
   )
 }
@@ -25,7 +26,7 @@ function runTone(status: string) {
 export default function Patching() {
   const { user } = useAuth()
   const isAdmin = user?.is_admin === 1
-  const [health, setHealth] = useState<{ success: boolean; version?: string } | null>(null)
+  const [health, setHealth] = useState<{ success: boolean; version?: string; auth_mode?: string } | null>(null)
   const [templates, setTemplates] = useState<AwxTemplate[]>([])
   const [jobs, setJobs] = useState<AwxJob[]>([])
   const [runs, setRuns] = useState<PatchRun[]>([])
@@ -117,7 +118,7 @@ export default function Patching() {
             <div className="table-wrap">
               <table>
                 <thead>
-                  <tr><th>Run ID</th><th>Template</th><th>Status</th><th>Hosts</th></tr>
+                  <tr><th>Run ID</th><th>Template</th><th>Status</th><th>Hosts</th><th>By</th></tr>
                 </thead>
                 <tbody>
                   {runs.slice(0, 15).map((r) => (
@@ -126,6 +127,7 @@ export default function Patching() {
                       <td>{r.template_name || '-'}</td>
                       <td><span className={`badge ${runTone(r.status)}`}>{r.status}</span></td>
                       <td>{r.host_count}</td>
+                      <td className="muted">{r.created_by || '-'}</td>
                     </tr>
                   ))}
                 </tbody>

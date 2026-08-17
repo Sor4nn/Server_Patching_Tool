@@ -122,6 +122,25 @@ def update_host(host_id: int, body: HostUpdate, user: dict = Depends(require_adm
     return {"success": True, "host": _host_row_to_dict(row)}
 
 
+@router.get("/{host_id}/packages")
+def get_host_packages(host_id: int, search: Optional[str] = None, _user: dict = Depends(current_user)):
+    conn = database.get_connection()
+    host = conn.execute("SELECT id FROM hosts WHERE id = ?", (host_id,)).fetchone()
+    if not host:
+        conn.close()
+        raise HTTPException(status_code=404, detail="Host not found")
+    query = "SELECT * FROM host_packages WHERE host_id = ?"
+    params = [host_id]
+    if search:
+        query += " AND name LIKE ?"
+        params.append(f"%{search}%")
+    query += " ORDER BY name"
+    rows = conn.execute(query, params).fetchall()
+    count = conn.execute("SELECT COUNT(*) AS c FROM host_packages WHERE host_id = ?", (host_id,)).fetchone()["c"]
+    conn.close()
+    return {"success": True, "packages": [dict(r) for r in rows], "count": count}
+
+
 @router.delete("/{host_id}")
 def delete_host(host_id: int, user: dict = Depends(require_admin)):
     conn = database.get_connection()

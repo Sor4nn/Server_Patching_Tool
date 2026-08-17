@@ -17,9 +17,13 @@ AWX_HOST = os.getenv("AWX_HOST", "YourHost")
 AWX_PORT = os.getenv("AWX_PORT", "8443")
 AWX_USERNAME = os.getenv("AWX_USERNAME", "<username>")
 AWX_PASSWORD = os.getenv("AWX_PASSWORD", "<password>")
+AWX_AUTH_MODE = os.getenv("AWX_AUTH_MODE", "basic")  # basic | token
+AWX_TOKEN = os.getenv("AWX_TOKEN", "")
 AWX_VAULT_ID = int(os.getenv("AWX_VAULT_ID", "3"))
 AWX_OMD_SSH_KEY_CRED_ID = int(os.getenv("AWX_OMD_SSH_KEY_CRED_ID", "4"))
 AWX_ITOPS_SSH_KEY_CRED_ID = int(os.getenv("AWX_ITOPS_SSH_KEY_CRED_ID", "5"))
+AWX_MASTER_INVENTORY = os.getenv("AWX_MASTER_INVENTORY", "master_inventory")
+AWX_PROJECT = os.getenv("AWX_PROJECT", "zeroops")
 
 # Endpoints self base (for AWX callbacks back into this app)
 ENDPOINTS_BASE_URL = os.getenv("ENDPOINTS_BASE_URL", "http://localhost:61008")

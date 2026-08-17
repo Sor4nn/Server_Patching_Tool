@@ -20,8 +20,24 @@ Existing AWX playbooks and webhook notifications keep working unchanged. These r
 | `/generate_runid` | Generate a run id (creates a `patch_runs` row) |
 | `/update_runid` | AWX webhook notification — update run status |
 | `/updatelatestpatch` | Playbook callback — update host `latest_patch` / `uptime` |
+| `/updatepackages` | Playbook callback — record installed RPM list for a host |
 | `/patch_task` | Create/update a host from playbook data |
 | `/updateaction` / `/updateremarks` / `/updateonboard` | Update per-host patch state |
+
+### Patching run flow
+
+Triggering a patch run (`POST /api/v1/patching/trigger`) does:
+
+1. Generates a `run_id` and writes the host CSV the playbook consumes.
+2. Creates (or reuses) an AWX group named `gpta_<run_id>` under the master inventory and adds the target hosts.
+3. Launches the job template scoped to that group, with `run_id`, `host_group`, and vault file passed in `extra_vars`.
+4. Records the run — including failed runs — so operators always see the attempt.
+
+Run status is reconciled from AWX via `POST /api/v1/patching/runs/{id}/refresh`.
+
+### Installed RPM collection
+
+`ansible_scripts/collect_packages.yml` collects the installed RPM list from a host (`rpm -qa`) and POSTs it to `/updatepackages`. Each host's Installed RPMs are visible on its detail page (searchable) with name, version, release, arch, and install time.
 
 ## Pre-requisites
 
@@ -37,8 +53,11 @@ The application is fully **environment-variable driven**.
 | --- | --- | --- |
 | `DB_URL` | SQLite database path | `<repo>/data/gpta.db` |
 | `AWX_PROTOCOL` / `AWX_HOST` / `AWX_PORT` | AWX REST API endpoint | `https` / `YourHost` / `8443` |
-| `AWX_USERNAME` / `AWX_PASSWORD` | AWX REST API credentials | placeholders |
+| `AWX_AUTH_MODE` | `basic` (user:password) or `token` (OAuth2 Bearer) | `basic` |
+| `AWX_USERNAME` / `AWX_PASSWORD` | AWX credentials (used when `AWX_AUTH_MODE=basic`) | placeholders |
+| `AWX_TOKEN` | AWX personal access token (used when `AWX_AUTH_MODE=token`, sent as `Authorization: Bearer`) | empty |
 | `AWX_VAULT_ID` / `AWX_OMD_SSH_KEY_CRED_ID` / `AWX_ITOPS_SSH_KEY_CRED_ID` | AWX credential ids | `3` / `4` / `5` |
+| `AWX_MASTER_INVENTORY` / `AWX_PROJECT` | AWX inventory / project names | `master_inventory` / `zeroops` |
 | `ENDPOINTS_BASE_URL` | Base URL for AWX callback endpoints | `http://localhost:61008` |
 | `SEED_ADMIN_USER` / `SEED_ADMIN_PASSWORD` | Admin created on first boot | `test` / `Bogdan123!` |
 | `CORS_ORIGINS` | Allowed dev origins | `http://localhost:3000` |
@@ -50,6 +69,7 @@ Copy `.env.example` to `.env` and edit the AWX vars. The default admin is `test`
 - Create a project and add the playbooks from `ansible_scripts/`.
 - Create an inventory.
 - Add a success/error webhook notification with target URL `http://YOUR_ENDPOINTS_HOST:61008/update_runid` (POST).
+- Authentication is either **Basic** (`AWX_AUTH_MODE=basic` + username/password) or an **OAuth2 token** (`AWX_AUTH_MODE=token` + `AWX_TOKEN`, sent as a Bearer token). Personal access tokens are created in the AWX UI under your user profile, or via `POST /api/v2/users/{id}/personal_tokens/`.
 
 ## Development
 

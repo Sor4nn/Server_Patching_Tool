@@ -47,6 +47,19 @@ export interface PatchRun {
   created_at: string
 }
 
+export interface HostPackage {
+  id: number
+  host_id: number
+  name: string
+  version: string | null
+  release: string | null
+  arch: string | null
+  epoch: string | null
+  source: string | null
+  installed_at: string | null
+  created_at: string
+}
+
 export interface AwxTemplate {
   id: number
   name: string

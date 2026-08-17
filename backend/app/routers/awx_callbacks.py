@@ -60,6 +60,21 @@ class UpdateOnBoard(BaseModel):
     state: str
 
 
+class PackageInfo(BaseModel):
+    name: str
+    version: Optional[str] = None
+    release: Optional[str] = None
+    arch: Optional[str] = None
+    epoch: Optional[str] = None
+    source: Optional[str] = None
+    installed_at: Optional[str] = None
+
+
+class UpdatePackages(BaseModel):
+    hostname: str
+    packages: list[PackageInfo]
+
+
 @router.post("/generate_runid")
 def generate_runid(body: GenerateRunId):
     now = datetime.now(timezone.utc)
@@ -155,3 +170,25 @@ def update_onboard(body: UpdateOnBoard):
     rows = cur.rowcount
     conn.close()
     return f"Updated {rows} Rows"
+
+
+@router.post("/updatepackages")
+def update_packages(body: UpdatePackages):
+    conn = database.get_connection()
+    host = conn.execute("SELECT id FROM hosts WHERE hostname = ?", (body.hostname,)).fetchone()
+    if not host:
+        conn.close()
+        return f"Host {body.hostname} not found"
+    host_id = host["id"]
+    conn.execute("DELETE FROM host_packages WHERE host_id = ?", (host_id,))
+    now = database.now_iso()
+    for pkg in body.packages:
+        conn.execute(
+            "INSERT OR IGNORE INTO host_packages (host_id, name, version, release, arch, epoch, source, installed_at, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (host_id, pkg.name, pkg.version, pkg.release, pkg.arch, pkg.epoch, pkg.source, pkg.installed_at, now),
+        )
+    conn.execute("UPDATE hosts SET updated_at = ? WHERE id = ?", (now, host_id))
+    conn.commit()
+    conn.close()
+    return f"Updated {len(body.packages)} packages for {body.hostname}"
