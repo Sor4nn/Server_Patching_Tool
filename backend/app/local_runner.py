@@ -114,8 +114,18 @@ def run_playbook(*, run_id: str, repo_url: str, branch: str, playbook: str,
                 "exit_code": 1, "output": (e.stderr or b"").decode(errors="ignore")}
 
     # Inventory: one host per line, with SSH connection vars from the credential.
+    # Hostnames keep the DB name so playbook callbacks match the stored host,
+    # while ansible_host routes the SSH connection to the actual address.
     conn_tokens, ssh_key = _connection_vars(credential)
-    host_lines = [f"{h} {' '.join(conn_tokens)}" if conn_tokens else h for h in hostnames]
+    host_lines = []
+    for h in hostnames:
+        toks = list(conn_tokens)
+        if isinstance(h, dict):
+            if h.get("ip_address") and h["ip_address"] != h.get("hostname"):
+                toks.append(f"ansible_host={h['ip_address']}")
+            h = h.get("hostname") or h.get("name") or ""
+        line = f"{h} {' '.join(toks)}" if toks else h
+        host_lines.append(line)
     (run_dir / "inventory" / "hosts").write_text(
         "\n".join(host_lines) if host_lines else "localhost\n", encoding="utf-8")
 

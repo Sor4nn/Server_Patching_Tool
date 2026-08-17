@@ -149,8 +149,8 @@ def run_template(tpl_id: int, body: TemplateRun, user: dict = Depends(require_ad
         raise HTTPException(status_code=400, detail="At least one host is required")
 
     placeholders = ",".join(["%s"] * len(body.host_ids))
-    hostnames = [h["hostname"] for h in
-                 conn.execute(f"SELECT hostname FROM hosts WHERE id IN ({placeholders})", body.host_ids).fetchall()]
+    hostnames = [dict(h) for h in conn.execute(
+        f"SELECT hostname, ip_address FROM hosts WHERE id IN ({placeholders})", body.host_ids).fetchall()]
 
     extra_vars = {}
     if body.extra_vars:
@@ -179,7 +179,7 @@ def run_template(tpl_id: int, body: TemplateRun, user: dict = Depends(require_ad
     with open(csv_path, "w") as f:
         f.write("host\n")
         for h in hostnames:
-            f.write(f"{h}\n")
+            f.write(f"{h['hostname']}\n")
 
     return run_local_playbook(
         conn=database.get_connection(),

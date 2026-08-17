@@ -131,8 +131,8 @@ def orchestrate_run(conn, template_id, host_ids, extra_vars, username, run_type=
     hostnames = []
     if host_ids:
         placeholders = ",".join(["%s"] * len(host_ids))
-        hostnames = [r["hostname"] for r in
-                     conn.execute(f"SELECT hostname FROM hosts WHERE id IN ({placeholders})", host_ids).fetchall()]
+        hostnames = [dict(r) for r in
+                     conn.execute(f"SELECT hostname, ip_address FROM hosts WHERE id IN ({placeholders})", host_ids).fetchall()]
 
     extra_vars = dict(extra_vars or {})
     extra_vars["run_id"] = run_id
@@ -143,7 +143,7 @@ def orchestrate_run(conn, template_id, host_ids, extra_vars, username, run_type=
     with open(csv_path, "w") as f:
         f.write("host\n")
         for h in hostnames:
-            f.write(f"{h}\n")
+            f.write(f"{h['hostname']}\n")
 
     option = _active_connection()
     provider = (option or {}).get("provider", "awx")
@@ -157,6 +157,11 @@ def orchestrate_run(conn, template_id, host_ids, extra_vars, username, run_type=
     return _orchestrate_awx(conn, run_id, template_id, hostnames, extra_vars, username, run_type)
 
 
+def _host_name(h) -> str:
+    """The DB hostname for a host entry (string or dict)."""
+    return h["hostname"] if isinstance(h, dict) else h
+
+
 def run_local_playbook(*, conn, run_id, repo_url, branch, playbook, hostnames, extra_vars, username, run_type,
                        execution_environment=None, credential=None) -> dict:
     """Run a playbook locally via ansible-runner and record the run in patch_runs.
@@ -165,7 +170,7 @@ def run_local_playbook(*, conn, run_id, repo_url, branch, playbook, hostnames, e
     None to fall back to the run-type default.
     """
     extra_vars = dict(extra_vars or {})
-    extra_vars["host_group"] = ",".join(hostnames) if hostnames else "localhost"
+    extra_vars["host_group"] = ",".join(_host_name(h) for h in hostnames) if hostnames else "localhost"
     playbook = (playbook or extra_vars.pop("playbook", None)
                 or local_runner.PLAYBOOK_BY_RUN_TYPE.get(run_type, "onepatch_execution.yml"))
 
@@ -210,8 +215,9 @@ def _orchestrate_awx(conn, run_id, template_id, hostnames, extra_vars, username,
 
     # Group in AWX inventory so playbooks can run `hosts: "{{ host_group }}"`
     group_name = f"gpta_{run_id}"
+    host_names = [_host_name(h) for h in hostnames]
     try:
-        group = awx.ensure_host_group(group_name, hostnames)
+        group = awx.ensure_host_group(group_name, host_names)
         extra_vars["host_group"] = group["name"]
         extra_vars["encryptedPasswordFile"] = "Vault/sudoUserEncryptfile.yml"
     except Exception as e:
@@ -220,7 +226,7 @@ def _orchestrate_awx(conn, run_id, template_id, hostnames, extra_vars, username,
         return {"success": False, "run": _run_to_dict(run), "awx": {"error": str(e)},
                 "error": f"AWX group setup failed: {e}"}
 
-    result = awx.launch_job(template_id, json.dumps(extra_vars), limit_hosts=hostnames or None)
+    result = awx.launch_job(template_id, json.dumps(extra_vars), limit_hosts=host_names or None)
     if not result.get("success"):
         # record the failed run so operators can see it
         run = _record_failed_run(conn, run_id, template_id, template_name, json.dumps(extra_vars),
