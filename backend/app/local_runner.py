@@ -103,6 +103,9 @@ def run_playbook(*, run_id: str, repo_url: str, branch: str, playbook: str,
         shutil.rmtree(run_dir)
     for d in ("project", "inventory", "env", "artifacts"):
         (run_dir / d).mkdir(parents=True, exist_ok=True)
+    shutil.chmod(run_dir, 0o777)
+    for d in run_dir.iterdir():
+        shutil.chmod(d, 0o777)
 
     try:
         _clone_project(run_dir, repo_url, branch)
