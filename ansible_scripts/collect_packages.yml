@@ -2,20 +2,18 @@
   hosts: "{{ host_group }}"
   gather_facts: false
   strategy: free
-  vars:
-    package_list: []
   tasks:
-    - name: Collect installed RPM list
-      command: rpm -qa --queryformat '%{NAME}|%{VERSION}|%{RELEASE}|%{ARCH}|%{INSTALLTIME}\n'
+    - name: Collect installed RPM list as JSON
+      command: >-
+        python3 -c "import subprocess, json; out = subprocess.check_output(['rpm', '-qa', '--queryformat', '%{NAME}|%{VERSION}|%{RELEASE}|%{ARCH}|%{INSTALLTIME}\\n']).decode(); pkgs = [{'name': p[0], 'version': p[1], 'release': p[2], 'arch': p[3], 'installed_at': p[4] if len(p)>4 else ''} for line in out.strip().splitlines() for p in [line.split('|')] if len(p)>=4]; print(json.dumps(pkgs))"
       become: no
-      register: rpms
+      register: rpms_json
       ignore_errors: yes
 
-    - name: Parse RPM output into JSON
+    - name: Set package list
       set_fact:
-        package_list: "{{ package_list + [{'name': item.split('|')[0], 'version': item.split('|')[1], 'release': item.split('|')[2], 'arch': item.split('|')[3], 'installed_at': item.split('|')[4] if item.split('|')|length > 4 else ''}] }}"
-      loop: "{{ rpms.stdout_lines | default([]) }}"
-      when: rpms is succeeded and rpms.stdout_lines is defined
+        package_list: "{{ rpms_json.stdout | from_json }}"
+      when: rpms_json is succeeded and rpms_json.stdout is defined and rpms_json.stdout | length > 0
 
     - name: Update installed packages to DB
       environment:
@@ -30,7 +28,5 @@
         body_format: json
         return_content: yes
       delegate_to: 127.0.0.1
-      when: package_list | length > 0
+      when: package_list is defined and package_list | length > 0
 
-    - debug:
-        var: package_list

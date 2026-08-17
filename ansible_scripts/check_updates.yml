@@ -2,63 +2,44 @@
   hosts: "{{ host_group }}"
   gather_facts: false
   strategy: free
-  vars:
-    package_list: []
-    update_list: []
-    security_updates: []
   tasks:
-    - name: Collect installed RPM list
-      command: rpm -qa --queryformat '%{NAME}|%{VERSION}|%{RELEASE}|%{ARCH}|%{INSTALLTIME}\n'
-      become: no
-      register: rpms
-      ignore_errors: yes
-
-    - name: Collect available updates (dnf)
-      command: dnf check-update --quiet --security=false
+    - name: Collect installed and available RPM packages with update status
+      command: >-
+        python3 -c "import subprocess, json
+        def run(cmd):
+            try: return subprocess.check_output(cmd, stderr=subprocess.DEVNULL).decode().strip().splitlines()
+            except Exception: return []
+        installed = []
+        for line in run(['rpm', '-qa', '--queryformat', '%{NAME}|%{VERSION}|%{RELEASE}|%{ARCH}|%{INSTALLTIME}\\n']):
+            p = line.split('|')
+            if len(p) >= 4:
+                installed.append({'name': p[0], 'version': p[1], 'release': p[2], 'arch': p[3], 'installed_at': p[4] if len(p)>4 else ''})
+        updates_map = {}
+        for line in run(['dnf', 'check-update', '--quiet', '--security=false']):
+            parts = line.split()
+            if len(parts) >= 2:
+                name = '.'.join(parts[0].split('.')[:-1]) if '.' in parts[0] else parts[0]
+                updates_map[name] = parts[1]
+        sec_set = set()
+        for line in run(['dnf', 'check-update', '--quiet', '--security']):
+            parts = line.split()
+            if len(parts) >= 1:
+                name = '.'.join(parts[0].split('.')[:-1]) if '.' in parts[0] else parts[0]
+                sec_set.add(name)
+        for pkg in installed:
+            name = pkg['name']
+            pkg['available_version'] = updates_map.get(name, '')
+            pkg['needs_update'] = name in updates_map
+            pkg['is_security_update'] = name in sec_set
+        print(json.dumps(installed))"
       become: yes
-      register: updates
+      register: pkgs_json
       ignore_errors: yes
 
-    - name: Collect security updates (dnf)
-      command: dnf check-update --quiet --security
-      become: yes
-      register: sec_updates
-      ignore_errors: yes
-
-    - name: Parse installed RPM list into JSON
+    - name: Set decorated package list
       set_fact:
-        package_list: "{{ package_list + [{'name': item.split('|')[0], 'version': item.split('|')[1], 'release': item.split('|')[2], 'arch': item.split('|')[3], 'installed_at': item.split('|')[4] if item.split('|')|length > 4 else ''}] }}"
-      loop: "{{ rpms.stdout_lines | default([]) }}"
-      when: rpms is succeeded and rpms.stdout_lines is defined
-
-    - name: Parse available updates into map (name -> new version)
-      set_fact:
-        update_list: "{{ update_list + [{'name': item.split('.')[:-1]|join('.'), 'version': item.split()|last}] }}"
-      loop: "{{ updates.stdout_lines | default([]) }}"
-      when: updates is succeeded and updates.stdout_lines is defined and item.split()|length >= 2
-
-    - name: Build updates lookup map (name -> new version)
-      set_fact:
-        updates_map: "{{ update_list | items2dict(key_name='name', value_name='version') }}"
-      when: update_list | length > 0
-
-    - name: Parse security update names
-      set_fact:
-        security_updates: "{{ security_updates + [item.split('.')[:-1]|join('.')] }}"
-      loop: "{{ sec_updates.stdout_lines | default([]) }}"
-      when: sec_updates is succeeded and sec_updates.stdout_lines is defined
-
-    - name: Decorate packages with available version / update flags
-      set_fact:
-        decorated: "{{ decorated + [item | combine({
-            'available_version': updates_map.get(item.name, ''),
-            'needs_update': (updates_map.get(item.name) is not none) | bool,
-            'is_security_update': (item.name in security_updates) | bool
-          })] }}"
-      loop: "{{ package_list }}"
-      loop_control:
-        label: "{{ item.name }}"
-      when: updates_map is defined
+        decorated: "{{ pkgs_json.stdout | from_json }}"
+      when: pkgs_json is succeeded and pkgs_json.stdout is defined and pkgs_json.stdout | length > 0
 
     - name: Update installed packages to DB
       environment:
@@ -74,6 +55,3 @@
         return_content: yes
       delegate_to: 127.0.0.1
       when: decorated is defined and decorated | length > 0
-
-    - debug:
-        var: decorated
