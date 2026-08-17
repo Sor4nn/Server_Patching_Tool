@@ -9,6 +9,7 @@ export default defineConfig({
       '/api': {
         target: 'http://localhost:61008',
         changeOrigin: true,
+        ws: true,
       },
       '/generate_runid': { target: 'http://localhost:61008', changeOrigin: true },
       '/update_runid': { target: 'http://localhost:61008', changeOrigin: true },

@@ -41,8 +41,6 @@ export default function Packages() {
     { total: 0, updates: 0, security: 0 },
   ), [packages])
 
-  const totalDisplay = Math.max(1234, totals.total)
-
   const toggleSelect = (id: number) => {
     setSelectedPackages((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])
   }
@@ -51,20 +49,6 @@ export default function Packages() {
     if (selectedPackages.length === packages.length) setSelectedPackages([])
     else setSelectedPackages(packages.map((p) => p.id))
   }
-
-  // Sample standard package names if none yet
-  const displayPackages = packages.length > 0 ? packages : [
-    { id: 1, name: 'aardvark-dns', category: 'BaseOS', latest_version: 'N/A', packageHostsCount: 1, packageHosts: [], stats: { totalInstalls: 1, updatesNeeded: 0, securityUpdates: 0 }, sourceRepos: [{ repoId: 1, repoName: 'rhel-9-for-x86_64-appstream-rpms', repoUrl: '', repoType: '' }] },
-    { id: 2, name: 'abattis-cantarell-fonts', category: 'AppStream', latest_version: 'N/A', packageHostsCount: 1, packageHosts: [], stats: { totalInstalls: 1, updatesNeeded: 0, securityUpdates: 0 }, sourceRepos: [] },
-    { id: 3, name: 'accountsservice', category: 'AppStream', latest_version: 'N/A', packageHostsCount: 1, packageHosts: [], stats: { totalInstalls: 1, updatesNeeded: 0, securityUpdates: 0 }, sourceRepos: [] },
-    { id: 4, name: 'accountsservice-libs', category: 'AppStream', latest_version: 'N/A', packageHostsCount: 1, packageHosts: [], stats: { totalInstalls: 1, updatesNeeded: 0, securityUpdates: 0 }, sourceRepos: [] },
-    { id: 5, name: 'acl', category: 'BaseOS', latest_version: '2.4.0-1.el9_8', packageHostsCount: 1, packageHosts: [], stats: { totalInstalls: 1, updatesNeeded: 0, securityUpdates: 0 }, sourceRepos: [{ repoId: 2, repoName: 'rhel-9-for-x86_64-baseos-rpms', repoUrl: '', repoType: '' }] },
-    { id: 6, name: 'adcli', category: 'BaseOS', latest_version: 'N/A', packageHostsCount: 1, packageHosts: [], stats: { totalInstalls: 1, updatesNeeded: 0, securityUpdates: 0 }, sourceRepos: [{ repoId: 2, repoName: 'rhel-9-for-x86_64-baseos-rpms', repoUrl: '', repoType: '' }] },
-    { id: 7, name: 'adcli-selinux', category: 'BaseOS', latest_version: 'N/A', packageHostsCount: 1, packageHosts: [], stats: { totalInstalls: 1, updatesNeeded: 0, securityUpdates: 0 }, sourceRepos: [{ repoId: 2, repoName: 'rhel-9-for-x86_64-baseos-rpms', repoUrl: '', repoType: '' }] },
-    { id: 8, name: 'adobe-mappings-cmap', category: 'AppStream', latest_version: 'N/A', packageHostsCount: 1, packageHosts: [], stats: { totalInstalls: 1, updatesNeeded: 0, securityUpdates: 0 }, sourceRepos: [] },
-    { id: 9, name: 'adobe-mappings-pdf', category: 'AppStream', latest_version: 'N/A', packageHostsCount: 1, packageHosts: [], stats: { totalInstalls: 1, updatesNeeded: 0, securityUpdates: 0 }, sourceRepos: [] },
-    { id: 10, name: 'alsa-lib', category: 'AppStream', latest_version: 'N/A', packageHostsCount: 1, packageHosts: [], stats: { totalInstalls: 1, updatesNeeded: 0, securityUpdates: 0 }, sourceRepos: [{ repoId: 1, repoName: 'rhel-9-for-x86_64-appstream-rpms', repoUrl: '', repoType: '' }] },
-  ]
 
   return (
     <div>
@@ -86,7 +70,7 @@ export default function Packages() {
             <span className="text-blue"><IconPackage size={16} /></span>
             <span>Packages</span>
           </div>
-          <div className="top-stat-value">{totalDisplay}</div>
+          <div className="top-stat-value">{packages.length}</div>
         </div>
 
         <div className="top-stat-card">
@@ -94,7 +78,7 @@ export default function Packages() {
             <span className="text-blue"><IconPackage size={16} /></span>
             <span>Installations</span>
           </div>
-          <div className="top-stat-value">{totalDisplay}</div>
+          <div className="top-stat-value">{totals.total}</div>
         </div>
 
         <div className="top-stat-card">
@@ -171,7 +155,7 @@ export default function Packages() {
                   <input
                     type="checkbox"
                     style={{ width: 'auto', cursor: 'pointer' }}
-                    checked={selectedPackages.length > 0 && selectedPackages.length === displayPackages.length}
+                    checked={packages.length > 0 && selectedPackages.length === packages.length}
                     onChange={toggleSelectAll}
                   />
                 </th>
@@ -183,7 +167,14 @@ export default function Packages() {
               </tr>
             </thead>
             <tbody>
-              {displayPackages.map((p) => (
+              {packages.length === 0 && (
+                <tr>
+                  <td colSpan={6} style={{ textAlign: 'center', padding: 32 }} className="muted">
+                    No packages found. Connect a host and collect package data.
+                  </td>
+                </tr>
+              )}
+              {packages.map((p) => (
                 <tr key={p.id}>
                   <td style={{ textAlign: 'center' }}>
                     <input
@@ -199,7 +190,7 @@ export default function Packages() {
                       <span style={{ fontWeight: 600, color: '#f1f5f9' }}>{p.name}</span>
                     </span>
                   </td>
-                  <td className="muted">{p.packageHostsCount || 1} host</td>
+                  <td className="muted">{p.packageHostsCount} host{p.packageHostsCount === 1 ? '' : 's'}</td>
                   <td>
                     {p.stats?.updatesNeeded > 0 ? (
                       <span className="badge badge-amber">Update Available</span>
@@ -234,13 +225,13 @@ export default function Packages() {
               <option>50</option>
               <option>100</option>
             </select>
-            <span>1-{displayPackages.length} of {totalDisplay}</span>
+            <span>{packages.length} of {packages.length}</span>
           </div>
 
           <div className="flex" style={{ gap: 6 }}>
             <button type="button" className="btn btn-sm" disabled style={{ padding: '3px 8px' }}>‹</button>
-            <span>Page 1 of 50</span>
-            <button type="button" className="btn btn-sm" style={{ padding: '3px 8px' }}>›</button>
+            <span>Page 1</span>
+            <button type="button" className="btn btn-sm" disabled style={{ padding: '3px 8px' }}>›</button>
           </div>
         </div>
       </div>

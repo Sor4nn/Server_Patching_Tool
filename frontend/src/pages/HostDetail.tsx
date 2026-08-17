@@ -3,7 +3,8 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../App'
 import type { Host, HostGroup, HostPackage } from '../types'
-import { IconChevronLeft, IconSearch } from '../components/Icons'
+import { IconChevronLeft, IconSearch, IconTerminal } from '../components/Icons'
+import TerminalModal from '../components/TerminalModal'
 
 export default function HostDetail() {
   const { id } = useParams()
@@ -18,6 +19,7 @@ export default function HostDetail() {
   const [error, setError] = useState('')
   const [form, setForm] = useState({ friendly_name: '', os_version: '', group_id: '', remarks: '' })
   const [saved, setSaved] = useState(false)
+  const [showTerminal, setShowTerminal] = useState(false)
 
   useEffect(() => {
     if (!id) return
@@ -87,8 +89,21 @@ export default function HostDetail() {
           <h1 className="page-title">{host.friendly_name || host.hostname}</h1>
           <p className="page-sub mono">{host.hostname} · {host.ip_address || 'no IP'}</p>
         </div>
-        {isAdmin && <button type="button" className="btn btn-danger" onClick={remove}>Delete Host</button>}
+        <div className="flex" style={{ gap: 10 }}>
+          <button type="button" className="btn btn-primary" onClick={() => setShowTerminal(true)}>
+            <IconTerminal size={15} /> Connect
+          </button>
+          {isAdmin && <button type="button" className="btn btn-danger" onClick={remove}>Delete Host</button>}
+        </div>
       </div>
+
+      {showTerminal && (
+        <TerminalModal
+          hostId={host.id}
+          hostLabel={`${host.friendly_name || host.hostname} (${host.ip_address || host.hostname})`}
+          onClose={() => setShowTerminal(false)}
+        />
+      )}
 
       {error && <div className="login-error">{error}</div>}
 
