@@ -64,8 +64,8 @@ export default function Hosts() {
   }
 
   // Host metrics
-  const totalCount = hosts.length || 2
-  const connectedCount = Math.max(1, Math.min(totalCount, hosts.filter((h) => h.state !== 'Blocked').length))
+  const totalCount = hosts.length
+  const connectedCount = hosts.filter((h) => h.state !== 'Blocked').length
   const offlineCount = totalCount - connectedCount
 
   return (

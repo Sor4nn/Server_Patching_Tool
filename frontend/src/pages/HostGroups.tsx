@@ -1,20 +1,25 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import { useAuth } from '../App'
-import type { HostGroup } from '../types'
-import { IconPlus } from '../components/Icons'
+import type { HostGroup, InventorySource } from '../types'
+import { IconPlus, IconRefresh, IconTrash } from '../components/Icons'
+import CreateSourceModal from '../components/CreateSourceModal'
 
 export default function HostGroups() {
   const { user } = useAuth()
   const isAdmin = user?.is_admin === 1
   const [groups, setGroups] = useState<HostGroup[]>([])
+  const [sources, setSources] = useState<InventorySource[]>([])
   const [error, setError] = useState('')
-  const [showCreate, setShowCreate] = useState(false)
+  const [syncing, setSyncing] = useState<number | null>(null)
+  const [showRepoModal, setShowRepoModal] = useState(false)
+  const [showGroupModal, setShowGroupModal] = useState(false)
 
   const load = async () => {
     try {
-      const res = await api.listGroups()
-      setGroups(res.groups)
+      const [g, s] = await Promise.all([api.listGroups(), api.listSources()])
+      setGroups(g.groups)
+      setSources(s.sources)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load')
     }
@@ -22,7 +27,31 @@ export default function HostGroups() {
 
   useEffect(() => { load() }, [])
 
-  const remove = async (id: number) => {
+  const sync = async (id: number) => {
+    setSyncing(id)
+    setError('')
+    try {
+      const res = await api.syncSource(id)
+      if (!res.success) throw new Error(res.error || 'Sync failed')
+      await load()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Sync failed')
+    } finally {
+      setSyncing(null)
+    }
+  }
+
+  const removeSource = async (id: number) => {
+    if (!confirm('Delete this repository? Hosts already synced are kept.')) return
+    try {
+      await api.deleteSource(id)
+      setSources(sources.filter((s) => s.id !== id))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Delete failed')
+    }
+  }
+
+  const removeGroup = async (id: number) => {
     if (!confirm('Delete this group? Hosts will be unassigned.')) return
     try {
       await api.deleteGroup(id)
@@ -36,18 +65,85 @@ export default function HostGroups() {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">Host Groups & Repos</h1>
-          <p className="page-sub">{groups.length} organized groups in estate</p>
+          <h1 className="page-title">Repositories</h1>
+          <p className="page-sub">{sources.length} repositories · {groups.length} host groups</p>
         </div>
         {isAdmin && (
-          <button type="button" className="btn btn-primary" onClick={() => setShowCreate(true)}>
-            <IconPlus size={14} /> New Group
+          <button type="button" className="btn btn-primary" onClick={() => setShowRepoModal(true)}>
+            <IconPlus size={14} /> New Repository
           </button>
         )}
       </div>
 
       {error && <div className="login-error">{error}</div>}
 
+      {/* Repositories (AWX-style git sources) */}
+      <h3 className="widget-title" style={{ marginTop: 4 }}>Repositories</h3>
+      <div className="card">
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Name</th><th>Repository</th><th>Branch</th><th>Auth</th><th>Hosts</th><th>Last Sync</th><th>Status</th>{isAdmin && <th />}</tr>
+            </thead>
+            <tbody>
+              {sources.map((s) => (
+                <tr key={s.id}>
+                  <td style={{ fontWeight: 600, color: '#f1f5f9' }}>
+                    {s.name}
+                    {!s.enabled && <span className="badge badge-gray" style={{ marginLeft: 6 }}>disabled</span>}
+                  </td>
+                  <td className="mono" style={{ fontSize: 11 }}>{s.repo_url}</td>
+                  <td className="mono">{s.branch}</td>
+                  <td>{s.auth_type}</td>
+                  <td>{s.host_count ?? 0}</td>
+                  <td className="muted">{s.last_sync_at ? new Date(s.last_sync_at).toLocaleString() : '-'}</td>
+                  <td>
+                    {s.last_sync_status === 'success' && <span className="badge badge-green">success</span>}
+                    {s.last_sync_status === 'failed' && <span className="badge badge-red" title={s.last_error || ''}>failed</span>}
+                    {!s.last_sync_status && <span className="muted">never</span>}
+                  </td>
+                  {isAdmin && (
+                    <td className="text-right">
+                      <button
+                        type="button"
+                        className="btn btn-sm"
+                        onClick={() => sync(s.id)}
+                        disabled={syncing === s.id}
+                        title="Sync now"
+                      >
+                        <IconRefresh size={13} /> {syncing === s.id ? 'Syncing…' : 'Sync'}
+                      </button>
+                      <button type="button" className="btn btn-sm btn-danger" onClick={() => removeSource(s.id)} title="Delete">
+                        <IconTrash size={13} />
+                      </button>
+                    </td>
+                  )}
+                </tr>
+              ))}
+              {sources.length === 0 && (
+                <tr>
+                  <td colSpan={isAdmin ? 8 : 7} className="muted">
+                    No repositories yet — add your first git repository (AWX-inventory style) and its hosts will appear here.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Host Groups */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '16px 0 8px' }}>
+        <div>
+          <h3 className="widget-title" style={{ margin: 0 }}>Host Groups</h3>
+          <p className="page-sub" style={{ margin: 0 }}>Groups grouped from repositories or created manually</p>
+        </div>
+        {isAdmin && (
+          <button type="button" className="btn btn-sm" onClick={() => setShowGroupModal(true)}>
+            <IconPlus size={12} /> New Group
+          </button>
+        )}
+      </div>
       <div className="card">
         <div className="table-wrap">
           <table>
@@ -61,7 +157,7 @@ export default function HostGroups() {
                   <td className="muted">{g.description || '-'}</td>
                   {isAdmin && (
                     <td className="text-right">
-                      <button type="button" className="btn btn-sm btn-danger" onClick={() => remove(g.id)}>Delete</button>
+                      <button type="button" className="btn btn-sm btn-danger" onClick={() => removeGroup(g.id)}>Delete</button>
                     </td>
                   )}
                 </tr>
@@ -72,7 +168,8 @@ export default function HostGroups() {
         </div>
       </div>
 
-      {showCreate && <CreateGroupModal onClose={() => setShowCreate(false)} onCreated={load} />}
+      {showRepoModal && <CreateSourceModal onClose={() => setShowRepoModal(false)} onCreated={load} />}
+      {showGroupModal && <CreateGroupModal onClose={() => setShowGroupModal(false)} onCreated={load} />}
     </div>
   )
 }

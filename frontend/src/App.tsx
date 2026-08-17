@@ -26,7 +26,6 @@ import Dashboard from './pages/Dashboard'
 import Hosts from './pages/Hosts'
 import HostDetail from './pages/HostDetail'
 import HostGroups from './pages/HostGroups'
-import InventorySources from './pages/InventorySources'
 import ExecutionEnvironments from './pages/ExecutionEnvironments'
 import Integration from './pages/Integration'
 import Patching from './pages/Patching'
@@ -114,8 +113,6 @@ function Layout() {
                 <>
                   <span className="nav-label">Hosts</span>
                   <div className="nav-badges">
-                    <span className="nav-badge-pill nav-badge-green">1</span>
-                    <span className="nav-badge-pill nav-badge-red">1</span>
                     <button
                       type="button"
                       className="nav-quick-add"
@@ -136,11 +133,6 @@ function Layout() {
             <NavLink to="/host-groups" className="nav-item">
               <span className="nav-icon"><IconRepo size={17} /></span>
               {!collapsed && <span className="nav-label">Repos</span>}
-            </NavLink>
-
-            <NavLink to="/inventory-sources" className="nav-item">
-              <span className="nav-icon"><IconRepo size={17} /></span>
-              {!collapsed && <span className="nav-label">Inventory Sources</span>}
             </NavLink>
 
             <NavLink to="/execution-environments" className="nav-item">
@@ -281,7 +273,7 @@ function Layout() {
             <Route path="/hosts" element={<Hosts />} />
             <Route path="/hosts/:id" element={<HostDetail />} />
             <Route path="/host-groups" element={<HostGroups />} />
-            <Route path="/inventory-sources" element={<InventorySources />} />
+            <Route path="/inventory-sources" element={<Navigate to="/host-groups" replace />} />
             <Route path="/execution-environments" element={<ExecutionEnvironments />} />
             <Route path="/patching" element={<Patching />} />
             <Route path="/integration" element={<Integration />} />
