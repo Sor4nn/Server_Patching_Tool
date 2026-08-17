@@ -86,6 +86,7 @@ def _connection_vars(credential: dict | None) -> tuple[list[str], str | None]:
         tokens.append(f"ansible_user={credential['username']}")
     if credential.get("credential_type") == "ssh_password" and credential.get("password"):
         tokens.append(f"ansible_ssh_pass={credential['password']}")
+    tokens.append("ansible_ssh_common_args=-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null")
     ssh_key = credential.get("private_key") if credential.get("credential_type") == "ssh_key" else None
     return tokens, ssh_key
 
@@ -139,7 +140,7 @@ def run_playbook(*, run_id: str, repo_url: str, branch: str, playbook: str,
     extra.setdefault("server_endpoints_app", config.ENDPOINTS_BASE_URL)
     (run_dir / "env" / "extravars").write_text(json.dumps(extra), encoding="utf-8")
     (run_dir / "env" / "envvars").write_text(
-        "ANSIBLE_NOCOLOR=True\nANSIBLE_FORCE_COLOR=False\n", encoding="utf-8")
+        "ANSIBLE_NOCOLOR=True\nANSIBLE_FORCE_COLOR=False\nANSIBLE_HOST_KEY_CHECKING=False\n", encoding="utf-8")
 
     image = _resolve_image(execution_environment)
     cmd = [
