@@ -13,7 +13,7 @@ ENV PYTHONUNBUFFERED=1
 
 # git for inventory source sync / playbook repo clone; docker CLI for
 # local-provider runs (execution environments) via the host docker socket
-RUN apt-get update && apt-get install -y --no-install-recommends git docker.io \
+RUN apt-get update && apt-get install -y --no-install-recommends git docker.io docker-cli \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
