@@ -19,7 +19,7 @@ import {
   IconChevronRight,
   IconChevronLeft,
   IconPlus,
-  IconLogo,
+  IconPatchMonLogo,
 } from './components/Icons'
 
 import Dashboard from './pages/Dashboard'
@@ -30,7 +30,11 @@ import Integration from './pages/Integration'
 import Patching from './pages/Patching'
 import Packages from './pages/Packages'
 import Policies from './pages/Policies'
-import Users from './pages/Users'
+import Settings from './pages/Settings'
+import Compliance from './pages/Compliance'
+import Reporting from './pages/Reporting'
+import Docker from './pages/Docker'
+import Automation from './pages/Automation'
 import Login from './pages/Login'
 
 interface AuthCtx {
@@ -74,12 +78,12 @@ function Layout() {
         <div className="sidebar-header">
           {!collapsed ? (
             <NavLink to="/" className="brand-wrapper">
-              <IconLogo size={24} />
+              <IconPatchMonLogo size={26} />
               <span className="brand-name">PatchMon</span>
             </NavLink>
           ) : (
             <NavLink to="/" className="brand-wrapper" title="PatchMon">
-              <IconLogo size={24} />
+              <IconPatchMonLogo size={26} />
             </NavLink>
           )}
           <button
@@ -88,13 +92,13 @@ function Layout() {
             onClick={() => setCollapsed(!collapsed)}
             title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
-            {collapsed ? <IconChevronRight size={14} /> : <IconChevronLeft size={14} />}
+            {collapsed ? <IconChevronRight size={13} /> : <IconChevronLeft size={13} />}
           </button>
         </div>
 
         <nav className="nav">
           <NavLink to="/" end className="nav-item">
-            <span className="nav-icon"><IconDashboard size={18} /></span>
+            <span className="nav-icon"><IconDashboard size={17} /></span>
             {!collapsed && <span className="nav-label">Dashboard</span>}
           </NavLink>
 
@@ -103,7 +107,7 @@ function Layout() {
             {!collapsed && <div className="nav-group-title">Assets</div>}
             
             <NavLink to="/hosts" className="nav-item">
-              <span className="nav-icon"><IconServer size={18} /></span>
+              <span className="nav-icon"><IconServer size={17} /></span>
               {!collapsed && (
                 <>
                   <span className="nav-label">Hosts</span>
@@ -120,7 +124,7 @@ function Layout() {
                         navigate('/hosts')
                       }}
                     >
-                      <IconPlus size={11} />
+                      <IconPlus size={10} />
                     </button>
                   </div>
                 </>
@@ -128,12 +132,12 @@ function Layout() {
             </NavLink>
 
             <NavLink to="/host-groups" className="nav-item">
-              <span className="nav-icon"><IconRepo size={18} /></span>
+              <span className="nav-icon"><IconRepo size={17} /></span>
               {!collapsed && <span className="nav-label">Repos</span>}
             </NavLink>
 
             <NavLink to="/packages" className="nav-item">
-              <span className="nav-icon"><IconPackage size={18} /></span>
+              <span className="nav-icon"><IconPackage size={17} /></span>
               {!collapsed && <span className="nav-label">Packages</span>}
             </NavLink>
           </div>
@@ -154,13 +158,13 @@ function Layout() {
                   }
                 }}
               >
-                <div className="flex" style={{ gap: 10 }}>
-                  <span className="nav-icon"><IconBandage size={18} /></span>
+                <div className="flex" style={{ gap: 9 }}>
+                  <span className="nav-icon"><IconBandage size={17} /></span>
                   {!collapsed && <span className="nav-label">Patching</span>}
                 </div>
                 {!collapsed && (
                   <span className="nav-caret">
-                    {openGroups.operations_patching ? <IconChevronDown size={13} /> : <IconChevronRight size={13} />}
+                    {openGroups.operations_patching ? <IconChevronDown size={12} /> : <IconChevronRight size={12} />}
                   </span>
                 )}
               </div>
@@ -181,81 +185,52 @@ function Layout() {
             </div>
 
             {/* Compliance */}
-            <div className="nav-item-group">
-              <div className="nav-group-header" onClick={() => toggleGroup('operations_compliance')}>
-                <div className="flex" style={{ gap: 10 }}>
-                  <span className="nav-icon"><IconShield size={18} /></span>
-                  {!collapsed && <span className="nav-label">Compliance</span>}
-                </div>
-                {!collapsed && (
-                  <span className="nav-caret">
-                    {openGroups.operations_compliance ? <IconChevronDown size={13} /> : <IconChevronRight size={13} />}
-                  </span>
-                )}
-              </div>
-            </div>
+            <NavLink to="/compliance" className="nav-item">
+              <span className="nav-icon"><IconShield size={17} /></span>
+              {!collapsed && <span className="nav-label">Compliance</span>}
+            </NavLink>
 
             {/* Reporting */}
-            <div className="nav-item-group">
-              <div className="nav-group-header" onClick={() => toggleGroup('operations_reporting')}>
-                <div className="flex" style={{ gap: 10 }}>
-                  <span className="nav-icon"><IconFileText size={18} /></span>
-                  {!collapsed && <span className="nav-label">Reporting</span>}
-                </div>
-                {!collapsed && (
-                  <span className="nav-caret">
-                    {openGroups.operations_reporting ? <IconChevronDown size={13} /> : <IconChevronRight size={13} />}
-                  </span>
-                )}
-              </div>
-            </div>
+            <NavLink to="/reporting" className="nav-item">
+              <span className="nav-icon"><IconFileText size={17} /></span>
+              {!collapsed && <span className="nav-label">Reporting</span>}
+            </NavLink>
 
             {/* Docker (Beta) */}
-            <div className="nav-item-group">
-              <div className="nav-group-header" onClick={() => toggleGroup('operations_docker')}>
-                <div className="flex" style={{ gap: 10 }}>
-                  <span className="nav-icon"><IconDocker size={18} /></span>
-                  {!collapsed && (
-                    <>
-                      <span className="nav-label">Docker</span>
-                      <span className="nav-badge-pill nav-badge-beta">Beta</span>
-                    </>
-                  )}
-                </div>
-                {!collapsed && (
-                  <span className="nav-caret">
-                    {openGroups.operations_docker ? <IconChevronDown size={13} /> : <IconChevronRight size={13} />}
-                  </span>
-                )}
-              </div>
-            </div>
+            <NavLink to="/docker" className="nav-item">
+              <span className="nav-icon"><IconDocker size={17} /></span>
+              {!collapsed && (
+                <>
+                  <span className="nav-label">Docker</span>
+                  <span className="nav-badge-pill nav-badge-beta">Beta</span>
+                </>
+              )}
+            </NavLink>
           </div>
 
           {/* SYSTEM SECTION */}
           <div className="nav-group">
             {!collapsed && <div className="nav-group-title">System</div>}
 
-            <NavLink to="/automation-options" className="nav-item">
-              <span className="nav-icon"><IconBot size={18} /></span>
+            <NavLink to="/automation" className="nav-item">
+              <span className="nav-icon"><IconBot size={17} /></span>
               {!collapsed && <span className="nav-label">Automation</span>}
             </NavLink>
 
-            {user?.is_admin === 1 && (
-              <NavLink to="/users" className="nav-item">
-                <span className="nav-icon"><IconSettings size={18} /></span>
-                {!collapsed && <span className="nav-label">Settings</span>}
-              </NavLink>
-            )}
+            <NavLink to="/settings" className="nav-item">
+              <span className="nav-icon"><IconSettings size={17} /></span>
+              {!collapsed && <span className="nav-label">Settings</span>}
+            </NavLink>
 
             <div className="nav-item-group">
               <div className="nav-group-header" onClick={() => toggleGroup('system_links')}>
-                <div className="flex" style={{ gap: 10 }}>
-                  <span className="nav-icon"><IconLink size={18} /></span>
+                <div className="flex" style={{ gap: 9 }}>
+                  <span className="nav-icon"><IconLink size={17} /></span>
                   {!collapsed && <span className="nav-label">Links</span>}
                 </div>
                 {!collapsed && (
                   <span className="nav-caret">
-                    {openGroups.system_links ? <IconChevronDown size={13} /> : <IconChevronRight size={13} />}
+                    {openGroups.system_links ? <IconChevronDown size={12} /> : <IconChevronRight size={12} />}
                   </span>
                 )}
               </div>
@@ -265,14 +240,23 @@ function Layout() {
 
         {!collapsed && (
           <div className="sidebar-footer">
-            <div className="user-chip">
-              <span className="user-avatar">{(user?.username || '?')[0].toUpperCase()}</span>
-              <div style={{ overflow: 'hidden' }}>
-                <div className="user-name">{user?.username}</div>
-                <div className="user-role">{user?.is_admin === 1 ? 'Administrator' : 'Viewer'}</div>
+            <NavLink to="/settings" className="user-chip-wrapper">
+              <span className="user-avatar-circle">
+                {(user?.username || '?')[0].toUpperCase()}
+              </span>
+              <div className="user-details">
+                <span className="user-name-text">{user?.username || 'test'}</span>
+                <span className="user-admin-badge">Admin</span>
               </div>
-            </div>
-            <button className="btn btn-ghost btn-block btn-sm" onClick={logout}>Sign out</button>
+            </NavLink>
+            <button
+              type="button"
+              className="logout-icon-btn"
+              onClick={logout}
+              title="Sign out"
+            >
+              ⎋
+            </button>
           </div>
         )}
       </aside>
@@ -289,7 +273,12 @@ function Layout() {
             <Route path="/integration" element={<Integration />} />
             <Route path="/packages" element={<Packages />} />
             <Route path="/automation-options" element={<Policies />} />
-            {user?.is_admin === 1 && <Route path="/users" element={<Users />} />}
+            <Route path="/compliance" element={<Compliance />} />
+            <Route path="/reporting" element={<Reporting />} />
+            <Route path="/docker" element={<Docker />} />
+            <Route path="/automation" element={<Automation />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/users" element={<Navigate to="/settings" replace />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>

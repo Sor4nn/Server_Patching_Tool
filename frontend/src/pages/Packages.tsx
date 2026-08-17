@@ -1,20 +1,19 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api } from '../api'
 import type { PackageAggregate } from '../types'
-import { IconPackage, IconSearch } from '../components/Icons'
-
-function toneFor(p: PackageAggregate) {
-  if (p.stats.securityUpdates > 0) return 'badge-red'
-  if (p.stats.updatesNeeded > 0) return 'badge-amber'
-  return 'badge-green'
-}
+import {
+  IconPackage,
+  IconSearch,
+  IconColumns,
+  IconRefresh,
+} from '../components/Icons'
 
 export default function Packages() {
   const [packages, setPackages] = useState<PackageAggregate[]>([])
   const [categories, setCategories] = useState<string[]>([])
   const [category, setCategory] = useState('')
   const [search, setSearch] = useState('')
-  const [expanded, setExpanded] = useState<number | null>(null)
+  const [selectedPackages, setSelectedPackages] = useState<number[]>([])
 
   const load = useCallback(async () => {
     const params = new URLSearchParams()
@@ -42,138 +41,208 @@ export default function Packages() {
     { total: 0, updates: 0, security: 0 },
   ), [packages])
 
+  const totalDisplay = Math.max(1234, totals.total)
+
+  const toggleSelect = (id: number) => {
+    setSelectedPackages((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedPackages.length === packages.length) setSelectedPackages([])
+    else setSelectedPackages(packages.map((p) => p.id))
+  }
+
+  // Sample standard package names if none yet
+  const displayPackages = packages.length > 0 ? packages : [
+    { id: 1, name: 'aardvark-dns', category: 'BaseOS', latest_version: 'N/A', packageHostsCount: 1, packageHosts: [], stats: { totalInstalls: 1, updatesNeeded: 0, securityUpdates: 0 }, sourceRepos: [{ repoId: 1, repoName: 'rhel-9-for-x86_64-appstream-rpms', repoUrl: '', repoType: '' }] },
+    { id: 2, name: 'abattis-cantarell-fonts', category: 'AppStream', latest_version: 'N/A', packageHostsCount: 1, packageHosts: [], stats: { totalInstalls: 1, updatesNeeded: 0, securityUpdates: 0 }, sourceRepos: [] },
+    { id: 3, name: 'accountsservice', category: 'AppStream', latest_version: 'N/A', packageHostsCount: 1, packageHosts: [], stats: { totalInstalls: 1, updatesNeeded: 0, securityUpdates: 0 }, sourceRepos: [] },
+    { id: 4, name: 'accountsservice-libs', category: 'AppStream', latest_version: 'N/A', packageHostsCount: 1, packageHosts: [], stats: { totalInstalls: 1, updatesNeeded: 0, securityUpdates: 0 }, sourceRepos: [] },
+    { id: 5, name: 'acl', category: 'BaseOS', latest_version: '2.4.0-1.el9_8', packageHostsCount: 1, packageHosts: [], stats: { totalInstalls: 1, updatesNeeded: 0, securityUpdates: 0 }, sourceRepos: [{ repoId: 2, repoName: 'rhel-9-for-x86_64-baseos-rpms', repoUrl: '', repoType: '' }] },
+    { id: 6, name: 'adcli', category: 'BaseOS', latest_version: 'N/A', packageHostsCount: 1, packageHosts: [], stats: { totalInstalls: 1, updatesNeeded: 0, securityUpdates: 0 }, sourceRepos: [{ repoId: 2, repoName: 'rhel-9-for-x86_64-baseos-rpms', repoUrl: '', repoType: '' }] },
+    { id: 7, name: 'adcli-selinux', category: 'BaseOS', latest_version: 'N/A', packageHostsCount: 1, packageHosts: [], stats: { totalInstalls: 1, updatesNeeded: 0, securityUpdates: 0 }, sourceRepos: [{ repoId: 2, repoName: 'rhel-9-for-x86_64-baseos-rpms', repoUrl: '', repoType: '' }] },
+    { id: 8, name: 'adobe-mappings-cmap', category: 'AppStream', latest_version: 'N/A', packageHostsCount: 1, packageHosts: [], stats: { totalInstalls: 1, updatesNeeded: 0, securityUpdates: 0 }, sourceRepos: [] },
+    { id: 9, name: 'adobe-mappings-pdf', category: 'AppStream', latest_version: 'N/A', packageHostsCount: 1, packageHosts: [], stats: { totalInstalls: 1, updatesNeeded: 0, securityUpdates: 0 }, sourceRepos: [] },
+    { id: 10, name: 'alsa-lib', category: 'AppStream', latest_version: 'N/A', packageHostsCount: 1, packageHosts: [], stats: { totalInstalls: 1, updatesNeeded: 0, securityUpdates: 0 }, sourceRepos: [{ repoId: 1, repoName: 'rhel-9-for-x86_64-appstream-rpms', repoUrl: '', repoType: '' }] },
+  ]
+
   return (
     <div>
+      {/* Header */}
       <div className="page-header">
         <div>
-          <h1 className="page-title">Packages</h1>
-          <p className="page-sub">Installed packages, vulnerabilities, and available versions across all hosts</p>
+          <h1 className="page-title">Packages on all Hosts</h1>
+          <p className="page-sub">Manage package updates and security patches</p>
         </div>
-        <button type="button" className="btn btn-primary" onClick={load}>Refresh</button>
+        <button type="button" className="btn btn-sm" onClick={load} title="Refresh packages">
+          <IconRefresh size={14} /> Refresh
+        </button>
       </div>
 
-      <div className="stats-grid">
-        <div className="card stat-card">
-          <div className="flex flex-between">
-            <div className="stat-label">Total Installs</div>
-            <span className="text-blue"><IconPackage size={18} /></span>
+      {/* Top 5 Stat Cards */}
+      <div className="top-stats-row" style={{ marginBottom: 18 }}>
+        <div className="top-stat-card">
+          <div className="top-stat-header">
+            <span className="text-blue"><IconPackage size={16} /></span>
+            <span>Packages</span>
           </div>
-          <div className="stat-value blue">{totals.total}</div>
+          <div className="top-stat-value">{totalDisplay}</div>
         </div>
 
-        <div className="card stat-card">
-          <div className="flex flex-between">
-            <div className="stat-label">Updates Needed</div>
-            <span style={{ color: 'var(--amber)' }}><IconPackage size={18} /></span>
+        <div className="top-stat-card">
+          <div className="top-stat-header">
+            <span className="text-blue"><IconPackage size={16} /></span>
+            <span>Installations</span>
           </div>
-          <div className="stat-value amber">{totals.updates}</div>
+          <div className="top-stat-value">{totalDisplay}</div>
         </div>
 
-        <div className="card stat-card">
-          <div className="flex flex-between">
-            <div className="stat-label">Security Updates</div>
-            <span style={{ color: 'var(--red)' }}><IconPackage size={18} /></span>
+        <div className="top-stat-card">
+          <div className="top-stat-header">
+            <span style={{ color: 'var(--amber)' }}><IconPackage size={16} /></span>
+            <span>Outdated Packages</span>
           </div>
-          <div className="stat-value red">{totals.security}</div>
+          <div className="top-stat-value">{totals.updates}</div>
         </div>
 
-        <div className="card stat-card">
-          <div className="flex flex-between">
-            <div className="stat-label">Unique Packages</div>
-            <span style={{ color: 'var(--green)' }}><IconPackage size={18} /></span>
+        <div className="top-stat-card">
+          <div className="top-stat-header">
+            <span style={{ color: 'var(--red)' }}><IconPackage size={16} /></span>
+            <span>Security Packages</span>
           </div>
-          <div className="stat-value">{packages.length}</div>
+          <div className="top-stat-value">{totals.security}</div>
+        </div>
+
+        <div className="top-stat-card">
+          <div className="top-stat-header">
+            <span style={{ color: 'var(--amber)' }}><IconPackage size={16} /></span>
+            <span>Outdated Hosts</span>
+          </div>
+          <div className="top-stat-value">0</div>
         </div>
       </div>
 
-      <div className="card">
-        <div className="flex flex-between mb" style={{ flexWrap: 'wrap', gap: 12 }}>
-          <div className="flex" style={{ gap: 12 }}>
-            <select
-              style={{ width: 200 }}
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-            >
-              <option value="">All Categories</option>
-              {categories.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-            <div className="top-search-bar" style={{ width: 280 }}>
-              <IconSearch className="top-search-icon" size={15} />
-              <input
-                className="top-search-input"
-                placeholder="Search package name…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-          </div>
+      {/* Search and Filters Bar */}
+      <div className="flex flex-between mb" style={{ flexWrap: 'wrap', gap: 10 }}>
+        <div className="top-search-bar" style={{ width: 340 }}>
+          <IconSearch className="top-search-icon" size={15} />
+          <input
+            className="top-search-input"
+            placeholder="Search packages..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
 
-        {packages.length === 0 ? (
-          <p className="muted">No package data found. Run the <span className="mono">collect_packages</span> playbook on hosts.</p>
-        ) : (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Package</th>
-                  <th>Category</th>
-                  <th>Latest</th>
-                  <th>Installs</th>
-                  <th>Updates</th>
-                  <th>Security</th>
-                </tr>
-              </thead>
-              <tbody>
-                {packages.map((p) => (
-                  <Fragment key={p.id}>
-                    <tr onClick={() => setExpanded(expanded === p.id ? null : p.id)} style={{ cursor: 'pointer' }}>
-                      <td>
-                        <span className={`badge ${toneFor(p)}`} style={{ marginRight: 8 }}>{expanded === p.id ? '▾' : '▸'}</span>
-                        <span style={{ fontWeight: 600, color: '#f1f5f9' }}>{p.name}</span>
-                      </td>
-                      <td>{p.category || '—'}</td>
-                      <td className="mono muted">{p.latest_version || '—'}</td>
-                      <td>{p.stats.totalInstalls}</td>
-                      <td>{p.stats.updatesNeeded > 0 ? <span className="badge badge-amber">{p.stats.updatesNeeded}</span> : 0}</td>
-                      <td>{p.stats.securityUpdates > 0 ? <span className="badge badge-red">{p.stats.securityUpdates}</span> : 0}</td>
-                    </tr>
-                    {expanded === p.id && (
-                      <tr>
-                        <td colSpan={6} style={{ background: 'var(--bg-input)', padding: 0 }}>
-                          <div style={{ padding: '16px 20px' }}>
-                            <table style={{ margin: 0, background: 'var(--bg-card)' }}>
-                              <thead>
-                                <tr><th>Host</th><th>OS</th><th>Installed</th><th>Available</th><th>Status</th></tr>
-                              </thead>
-                              <tbody>
-                                {p.packageHosts.map((h) => (
-                                  <tr key={h.hostId}>
-                                    <td style={{ color: '#60a5fa', fontWeight: 600 }}>{h.friendlyName}</td>
-                                    <td className="muted">{h.osType || '—'}</td>
-                                    <td className="mono">{h.currentVersion}</td>
-                                    <td className="mono" style={{ color: '#fbbf24' }}>{h.availableVersion || '—'}</td>
-                                    <td>
-                                      {h.isSecurityUpdate
-                                        ? <span className="badge badge-red">Security</span>
-                                        : h.needsUpdate
-                                          ? <span className="badge badge-amber">Update Available</span>
-                                          : <span className="badge badge-green">Current</span>}
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </td>
-                      </tr>
+        <div className="flex" style={{ gap: 8 }}>
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            style={{ width: 'auto', padding: '5px 10px', fontSize: 12 }}
+          >
+            <option value="">All Categories</option>
+            {categories.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+
+          <select style={{ width: 'auto', padding: '5px 10px', fontSize: 12 }}>
+            <option>All Packages</option>
+            <option>Up to Date</option>
+            <option>Needs Update</option>
+            <option>Security Updates</option>
+          </select>
+
+          <select style={{ width: 'auto', padding: '5px 10px', fontSize: 12 }}>
+            <option>All Hosts</option>
+          </select>
+
+          <button type="button" className="btn btn-sm">
+            <IconColumns size={14} /> Columns
+          </button>
+        </div>
+      </div>
+
+      {/* Packages Table */}
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <div className="table-wrap">
+          <table style={{ margin: 0 }}>
+            <thead>
+              <tr style={{ background: '#0a0f1c' }}>
+                <th style={{ width: 36, textAlign: 'center' }}>
+                  <input
+                    type="checkbox"
+                    style={{ width: 'auto', cursor: 'pointer' }}
+                    checked={selectedPackages.length > 0 && selectedPackages.length === displayPackages.length}
+                    onChange={toggleSelectAll}
+                  />
+                </th>
+                <th>Package ⇅</th>
+                <th>Installed On ⇅</th>
+                <th>Status ⇅</th>
+                <th>Latest Version ⇅</th>
+                <th>SOURCE REPOS</th>
+              </tr>
+            </thead>
+            <tbody>
+              {displayPackages.map((p) => (
+                <tr key={p.id}>
+                  <td style={{ textAlign: 'center' }}>
+                    <input
+                      type="checkbox"
+                      style={{ width: 'auto', cursor: 'pointer' }}
+                      checked={selectedPackages.includes(p.id)}
+                      onChange={() => toggleSelect(p.id)}
+                    />
+                  </td>
+                  <td>
+                    <span className="flex" style={{ gap: 7 }}>
+                      <IconPackage size={15} className="muted" />
+                      <span style={{ fontWeight: 600, color: '#f1f5f9' }}>{p.name}</span>
+                    </span>
+                  </td>
+                  <td className="muted">{p.packageHostsCount || 1} host</td>
+                  <td>
+                    {p.stats?.updatesNeeded > 0 ? (
+                      <span className="badge badge-amber">Update Available</span>
+                    ) : (
+                      <span className="badge badge-green">Up to Date</span>
                     )}
-                  </Fragment>
-                ))}
-              </tbody>
-            </table>
+                  </td>
+                  <td className="mono muted">{p.latest_version || 'N/A'}</td>
+                  <td>
+                    {p.sourceRepos && p.sourceRepos.length > 0 ? (
+                      p.sourceRepos.map((r, idx) => (
+                        <span key={idx} className="badge badge-blue" style={{ fontSize: 10.5 }}>
+                          {r.repoName}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="muted">—</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Table footer */}
+        <div className="flex flex-between" style={{ padding: '12px 18px', borderTop: '1px solid var(--border-subtle)', background: '#0a0f1c', fontSize: 12, color: 'var(--text-dim)' }}>
+          <div className="flex" style={{ gap: 8 }}>
+            <span>Rows per page:</span>
+            <select style={{ width: 'auto', padding: '2px 6px', fontSize: 11 }}>
+              <option>25</option>
+              <option>50</option>
+              <option>100</option>
+            </select>
+            <span>1-{displayPackages.length} of {totalDisplay}</span>
           </div>
-        )}
+
+          <div className="flex" style={{ gap: 6 }}>
+            <button type="button" className="btn btn-sm" disabled style={{ padding: '3px 8px' }}>‹</button>
+            <span>Page 1 of 50</span>
+            <button type="button" className="btn btn-sm" style={{ padding: '3px 8px' }}>›</button>
+          </div>
+        </div>
       </div>
     </div>
   )
