@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
-import { Navigate, NavLink, Route, Routes, useNavigate } from 'react-router-dom'
+import { Navigate, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { api } from './api'
 import type { User } from './types'
 import Dashboard from './pages/Dashboard'
@@ -25,6 +25,95 @@ export function useAuth() {
   return useContext(AuthContext)
 }
 
+interface NavChild {
+  to: string
+  label: string
+  end?: boolean
+}
+
+interface NavItem {
+  to: string
+  label: string
+  children?: NavChild[]
+  adminOnly?: boolean
+}
+
+interface NavSection {
+  title: string
+  items: NavItem[]
+}
+
+const NAV: NavSection[] = [
+  {
+    title: 'Assets',
+    items: [
+      { to: '/hosts', label: 'Hosts' },
+      { to: '/host-groups', label: 'Host Groups' },
+      { to: '/packages', label: 'Packages' },
+    ],
+  },
+  {
+    title: 'Operations',
+    items: [
+      {
+        to: '/patching',
+        label: 'Patching',
+        children: [
+          { to: '/patching', label: 'Patch Tree', end: true },
+          { to: '/integration', label: 'Integration' },
+          { to: '/automation-options', label: 'Automation Options' },
+        ],
+      },
+    ],
+  },
+  {
+    title: 'System',
+    items: [
+      { to: '/users', label: 'Users', adminOnly: true },
+    ],
+  },
+]
+
+function GroupNav({ section }: { section: NavSection }) {
+  const { user } = useAuth()
+  const location = useLocation()
+  const items = section.items.filter((i) => !i.adminOnly || user?.is_admin === 1)
+
+  return (
+    <div className="nav-group">
+      <div className="nav-group-title">{section.title}</div>
+      {items.map((item) => {
+        const active = item.to === '/' ? location.pathname === '/' : location.pathname.startsWith(item.to)
+        const childActive = item.children?.some((c) =>
+          c.end ? location.pathname === c.to : location.pathname.startsWith(c.to)) || active
+
+        if (!item.children) {
+          return (
+            <NavLink key={item.to} to={item.to} end={item.to === '/'} className="nav-item">
+              {item.label}
+            </NavLink>
+          )
+        }
+        return (
+          <div key={item.to} className={`nav-item nav-item-group ${childActive ? 'active' : ''}`}>
+            <div className="nav-item-label">
+              {item.label}
+              <span className="nav-caret">{childActive ? '▾' : '▸'}</span>
+            </div>
+            <div className="nav-sub">
+              {item.children.map((c) => (
+                <NavLink key={c.to} to={c.to} end={c.end} className="nav-subitem">
+                  {c.label}
+                </NavLink>
+              ))}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 function Layout() {
   const { user, setUser } = useAuth()
   const navigate = useNavigate()
@@ -47,13 +136,7 @@ function Layout() {
         </div>
         <nav className="nav">
           <NavLink to="/" end className="nav-item">Dashboard</NavLink>
-          <NavLink to="/hosts" className="nav-item">Hosts</NavLink>
-          <NavLink to="/host-groups" className="nav-item">Host Groups</NavLink>
-          <NavLink to="/patching" className="nav-item">Patching</NavLink>
-          <NavLink to="/integration" className="nav-item">Integration</NavLink>
-          <NavLink to="/packages" className="nav-item">Packages</NavLink>
-          <NavLink to="/automation-options" className="nav-item">Automation Options</NavLink>
-          {user?.is_admin === 1 && <NavLink to="/users" className="nav-item">Users</NavLink>}
+          {NAV.map((section) => <GroupNav key={section.title} section={section} />)}
         </nav>
         <div className="sidebar-footer">
           <div className="user-chip">
