@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# Node
+node_modules/
+
+# Secrets - never commit vault password file
+patchautomation_portal/patchservers/pass.txt
+
+# Database - generated/migrated at runtime
+database/*.sqlite3
+
+# Local runtime artifacts
+user_files/
+user_var/
+data/
+logs/
+*.log
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
