@@ -112,6 +112,15 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ host_ids: hostIds }),
     }),
+
+  listSources: () => request<{ success: boolean; sources: InventorySource[] }>('/inventory-sources'),
+  createSource: (body: Record<string, unknown>) =>
+    request<{ success: boolean; source: InventorySource }>('/inventory-sources', { method: 'POST', body: JSON.stringify(body) }),
+  updateSource: (id: number, body: Record<string, unknown>) =>
+    request<{ success: boolean; source: InventorySource }>(`/inventory-sources/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  deleteSource: (id: number) => request<{ success: boolean }>(`/inventory-sources/${id}`, { method: 'DELETE' }),
+  syncSource: (id: number) =>
+    request<{ success: boolean; summary?: { added_groups: number; added_hosts: number; updated_hosts: number; removed_hosts: number; files: number }; error?: string }>(`/inventory-sources/${id}/sync`, { method: 'POST' }),
 }
 
-import type { DashboardStats, Host, HostGroup, PatchRun, User, AwxTemplate, AwxJob, HostPackage, PackageAggregate, PatchPolicy, ExecutionOption, PatchTreeNode, ButtonBinding } from './types'
+import type { DashboardStats, Host, HostGroup, PatchRun, User, AwxTemplate, AwxJob, HostPackage, PackageAggregate, PatchPolicy, ExecutionOption, PatchTreeNode, ButtonBinding, InventorySource } from './types'

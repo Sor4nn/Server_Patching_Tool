@@ -26,6 +26,7 @@ import Dashboard from './pages/Dashboard'
 import Hosts from './pages/Hosts'
 import HostDetail from './pages/HostDetail'
 import HostGroups from './pages/HostGroups'
+import InventorySources from './pages/InventorySources'
 import Integration from './pages/Integration'
 import Patching from './pages/Patching'
 import Packages from './pages/Packages'
@@ -134,6 +135,11 @@ function Layout() {
             <NavLink to="/host-groups" className="nav-item">
               <span className="nav-icon"><IconRepo size={17} /></span>
               {!collapsed && <span className="nav-label">Repos</span>}
+            </NavLink>
+
+            <NavLink to="/inventory-sources" className="nav-item">
+              <span className="nav-icon"><IconRepo size={17} /></span>
+              {!collapsed && <span className="nav-label">Inventory Sources</span>}
             </NavLink>
 
             <NavLink to="/packages" className="nav-item">
@@ -269,6 +275,7 @@ function Layout() {
             <Route path="/hosts" element={<Hosts />} />
             <Route path="/hosts/:id" element={<HostDetail />} />
             <Route path="/host-groups" element={<HostGroups />} />
+            <Route path="/inventory-sources" element={<InventorySources />} />
             <Route path="/patching" element={<Patching />} />
             <Route path="/integration" element={<Integration />} />
             <Route path="/packages" element={<Packages />} />

@@ -152,6 +152,25 @@ CREATE TABLE IF NOT EXISTS button_bindings (
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS inventory_sources (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    repo_url TEXT NOT NULL,
+    branch TEXT NOT NULL DEFAULT 'main',
+    auth_type TEXT NOT NULL DEFAULT 'none',  -- none | token | ssh | userpass
+    username TEXT,
+    password TEXT,
+    token TEXT,
+    file_pattern TEXT NOT NULL DEFAULT '**/*',  -- git refs processed (ini/yml/yaml hosts)
+    prune_missing INTEGER NOT NULL DEFAULT 0,   -- delete hosts absent from the repo
+    enabled INTEGER NOT NULL DEFAULT 1,
+    last_sync_at TEXT,
+    last_sync_status TEXT,  -- success | failed
+    last_error TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
 """
 
 

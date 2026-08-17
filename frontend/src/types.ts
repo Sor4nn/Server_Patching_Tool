@@ -178,3 +178,23 @@ export interface DashboardStats {
   total_users: number
   total_runs: number
 }
+
+export interface InventorySource {
+  id: number
+  name: string
+  repo_url: string
+  branch: string
+  auth_type: 'none' | 'token' | 'ssh' | 'userpass'
+  username: string | null
+  password: string | null
+  token: string | null
+  file_pattern: string
+  prune_missing: number
+  enabled: number
+  last_sync_at: string | null
+  last_sync_status: string | null
+  last_error: string | null
+  created_at: string
+  updated_at: string
+  host_count?: number
+}

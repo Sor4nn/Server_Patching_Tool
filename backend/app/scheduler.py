@@ -3,7 +3,7 @@ import threading
 import time
 from datetime import datetime, timedelta, timezone
 
-from . import database
+from . import database, inventory_sync
 from .routers import patching
 
 
@@ -91,11 +91,19 @@ def run_scheduler_once():
 
 
 def scheduler_loop(stop_event):
+    last_repo_sync = 0.0
     while not stop_event.wait(30):
         try:
             run_scheduler_once()
         except Exception:
             pass
+        # Reconcile repo inventory every 30 minutes
+        if time.monotonic() - last_repo_sync >= 1800:
+            last_repo_sync = time.monotonic()
+            try:
+                inventory_sync.sync_all_sources()
+            except Exception:
+                pass
 
 
 def start_scheduler():
