@@ -8,7 +8,7 @@ services:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-gpta}
       - POSTGRES_DB=${POSTGRES_DB:-gpta}
     volumes:
-      - gpta-pgdata:/var/lib/postgresql/data
+      - gpta-pgdata:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-gpta} -d ${POSTGRES_DB:-gpta}"]
       interval: 5s
