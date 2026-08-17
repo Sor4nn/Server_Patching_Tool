@@ -13,9 +13,9 @@ def _policy_to_dict(row) -> dict:
     p = dict(row)
     conn = database.get_connection()
     p["assignments"] = [dict(a) for a in
-                        conn.execute("SELECT * FROM policy_assignments WHERE policy_id = ?", (p["id"],)).fetchall()]
+                        conn.execute("SELECT * FROM policy_assignments WHERE policy_id = %s", (p["id"],)).fetchall()]
     p["exclusions"] = [dict(e) for e in
-                       conn.execute("SELECT * FROM policy_exclusions WHERE policy_id = ?", (p["id"],)).fetchall()]
+                       conn.execute("SELECT * FROM policy_exclusions WHERE policy_id = %s", (p["id"],)).fetchall()]
     conn.close()
     return p
 
@@ -55,7 +55,7 @@ def list_policies(_user: dict = Depends(require_admin)):
 @router.get("/{policy_id}")
 def get_policy(policy_id: int, _user: dict = Depends(require_admin)):
     conn = database.get_connection()
-    row = conn.execute("SELECT * FROM patch_policies WHERE id = ?", (policy_id,)).fetchone()
+    row = conn.execute("SELECT * FROM patch_policies WHERE id = %s", (policy_id,)).fetchone()
     conn.close()
     if not row:
         raise HTTPException(status_code=404, detail="Policy not found")
@@ -69,15 +69,16 @@ def create_policy(body: PolicyCreate, _user: dict = Depends(require_admin)):
     try:
         cur = conn.execute(
             "INSERT INTO patch_policies (name, description, patch_delay_type, delay_minutes, fixed_time_utc, template_id, enabled, created_at, updated_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)",
+            "VALUES (%s, %s, %s, %s, %s, %s, 1, %s, %s) RETURNING id",
             (body.name.strip(), body.description, body.patch_delay_type, body.delay_minutes, body.fixed_time_utc,
              body.template_id, now, now),
         )
-    except database.sqlite3.IntegrityError:
+    except database.IntegrityError:
         conn.close()
         raise HTTPException(status_code=409, detail="Policy name already exists")
     conn.commit()
-    row = conn.execute("SELECT * FROM patch_policies WHERE id = ?", (cur.lastrowid,)).fetchone()
+    policy_id = cur.fetchone()["id"]
+    row = conn.execute("SELECT * FROM patch_policies WHERE id = %s", (policy_id,)).fetchone()
     conn.close()
     return {"success": True, "policy": _policy_to_dict(row)}
 
@@ -85,7 +86,7 @@ def create_policy(body: PolicyCreate, _user: dict = Depends(require_admin)):
 @router.put("/{policy_id}")
 def update_policy(policy_id: int, body: PolicyUpdate, _user: dict = Depends(require_admin)):
     conn = database.get_connection()
-    existing = conn.execute("SELECT * FROM patch_policies WHERE id = ?", (policy_id,)).fetchone()
+    existing = conn.execute("SELECT * FROM patch_policies WHERE id = %s", (policy_id,)).fetchone()
     if not existing:
         conn.close()
         raise HTTPException(status_code=404, detail="Policy not found")
@@ -94,17 +95,17 @@ def update_policy(policy_id: int, body: PolicyUpdate, _user: dict = Depends(requ
                    ("delay_minutes", body.delay_minutes), ("fixed_time_utc", body.fixed_time_utc),
                    ("template_id", body.template_id)):
         if val is not None:
-            sets.append(f"{f} = ?")
+            sets.append(f"{f} = %s")
             params.append(val if not isinstance(val, str) or not val.strip() == "" else None)
     if body.enabled is not None:
-        sets.append("enabled = ?")
+        sets.append("enabled = %s")
         params.append(int(body.enabled))
-    sets.append("updated_at = ?")
+    sets.append("updated_at = %s")
     params.append(database.now_iso())
     params.append(policy_id)
-    conn.execute(f"UPDATE patch_policies SET {', '.join(sets)} WHERE id = ?", params)
+    conn.execute(f"UPDATE patch_policies SET {', '.join(sets)} WHERE id = %s", params)
     conn.commit()
-    row = conn.execute("SELECT * FROM patch_policies WHERE id = ?", (policy_id,)).fetchone()
+    row = conn.execute("SELECT * FROM patch_policies WHERE id = %s", (policy_id,)).fetchone()
     conn.close()
     return {"success": True, "policy": _policy_to_dict(row)}
 
@@ -112,7 +113,7 @@ def update_policy(policy_id: int, body: PolicyUpdate, _user: dict = Depends(requ
 @router.delete("/{policy_id}")
 def delete_policy(policy_id: int, _user: dict = Depends(require_admin)):
     conn = database.get_connection()
-    cur = conn.execute("DELETE FROM patch_policies WHERE id = ?", (policy_id,))
+    cur = conn.execute("DELETE FROM patch_policies WHERE id = %s", (policy_id,))
     conn.commit()
     conn.close()
     if cur.rowcount == 0:
@@ -125,11 +126,12 @@ def add_assignment(policy_id: int, body: Assignment, _user: dict = Depends(requi
     if body.target_type not in ("host", "host_group"):
         raise HTTPException(status_code=400, detail="target_type must be 'host' or 'host_group'")
     conn = database.get_connection()
-    if not conn.execute("SELECT id FROM patch_policies WHERE id = ?", (policy_id,)).fetchone():
+    if not conn.execute("SELECT id FROM patch_policies WHERE id = %s", (policy_id,)).fetchone():
         conn.close()
         raise HTTPException(status_code=404, detail="Policy not found")
     try:
-        conn.execute("INSERT OR IGNORE INTO policy_assignments (policy_id, target_type, target_id) VALUES (?, ?, ?)",
+        conn.execute("INSERT INTO policy_assignments (policy_id, target_type, target_id) VALUES (%s, %s, %s) "
+                     "ON CONFLICT DO NOTHING",
                      (policy_id, body.target_type, body.target_id))
     except Exception as e:
         conn.close()
@@ -142,7 +144,7 @@ def add_assignment(policy_id: int, body: Assignment, _user: dict = Depends(requi
 @router.delete("/{policy_id}/assignments/{assignment_id}")
 def remove_assignment(policy_id: int, assignment_id: int, _user: dict = Depends(require_admin)):
     conn = database.get_connection()
-    cur = conn.execute("DELETE FROM policy_assignments WHERE id = ? AND policy_id = ?", (assignment_id, policy_id))
+    cur = conn.execute("DELETE FROM policy_assignments WHERE id = %s AND policy_id = %s", (assignment_id, policy_id))
     conn.commit()
     conn.close()
     if cur.rowcount == 0:
@@ -153,10 +155,11 @@ def remove_assignment(policy_id: int, assignment_id: int, _user: dict = Depends(
 @router.post("/{policy_id}/exclusions")
 def add_exclusion(policy_id: int, host_id: int, _user: dict = Depends(require_admin)):
     conn = database.get_connection()
-    if not conn.execute("SELECT id FROM patch_policies WHERE id = ?", (policy_id,)).fetchone():
+    if not conn.execute("SELECT id FROM patch_policies WHERE id = %s", (policy_id,)).fetchone():
         conn.close()
         raise HTTPException(status_code=404, detail="Policy not found")
-    conn.execute("INSERT OR IGNORE INTO policy_exclusions (policy_id, host_id) VALUES (?, ?)", (policy_id, host_id))
+    conn.execute("INSERT INTO policy_exclusions (policy_id, host_id) VALUES (%s, %s) ON CONFLICT DO NOTHING",
+                 (policy_id, host_id))
     conn.commit()
     conn.close()
     return {"success": True}
@@ -165,7 +168,7 @@ def add_exclusion(policy_id: int, host_id: int, _user: dict = Depends(require_ad
 @router.delete("/{policy_id}/exclusions/{exclusion_id}")
 def remove_exclusion(policy_id: int, exclusion_id: int, _user: dict = Depends(require_admin)):
     conn = database.get_connection()
-    cur = conn.execute("DELETE FROM policy_exclusions WHERE id = ? AND policy_id = ?", (exclusion_id, policy_id))
+    cur = conn.execute("DELETE FROM policy_exclusions WHERE id = %s AND policy_id = %s", (exclusion_id, policy_id))
     conn.commit()
     conn.close()
     if cur.rowcount == 0:

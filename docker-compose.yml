@@ -1,12 +1,35 @@
 services:
+  db:
+    image: postgres:18
+    container_name: gpta-db
+    restart: unless-stopped
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-gpta}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-gpta}
+      - POSTGRES_DB=${POSTGRES_DB:-gpta}
+    volumes:
+      - gpta-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-gpta} -d ${POSTGRES_DB:-gpta}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   gpta:
     build: .
     container_name: gpta
     restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
     ports:
       - "61008:61008"
     environment:
-      - DB_URL=/data/gpta.db
+      - DATABASE_HOST=db
+      - DATABASE_PORT=5432
+      - DATABASE_USER=${POSTGRES_USER:-gpta}
+      - DATABASE_PASSWORD=${POSTGRES_PASSWORD:-gpta}
+      - DATABASE_NAME=${POSTGRES_DB:-gpta}
       - DATA_DIR=/data
       - USER_FILES_PATH=/data/user_files
       - AWX_PROTOCOL=${AWX_PROTOCOL:-https}
@@ -30,3 +53,4 @@ services:
 
 volumes:
   gpta-data:
+  gpta-pgdata:

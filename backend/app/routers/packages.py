@@ -25,10 +25,10 @@ def list_packages(category: Optional[str] = None, search: Optional[str] = None,
     """
     params = []
     if category:
-        query += " AND p.category = ?"
+        query += " AND p.category = %s"
         params.append(category)
     if search:
-        query += " AND p.name LIKE ?"
+        query += " AND p.name LIKE %s"
         params.append(f"%{search}%")
     query += " ORDER BY p.name, h.hostname"
     rows = conn.execute(query, params).fetchall()

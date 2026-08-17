@@ -18,7 +18,7 @@ def patch_tree(_user: dict = Depends(current_user)):
     tree = []
     for host in hosts:
         pkgs = conn.execute(
-            "SELECT * FROM host_packages WHERE host_id = ? ORDER BY name", (host["id"],)
+            "SELECT * FROM host_packages WHERE host_id = %s ORDER BY name", (host["id"],)
         ).fetchall()
         current, new = [], []
         for p in pkgs:
@@ -65,12 +65,12 @@ def bind_button(button_key: str, body: ButtonBind, _user: dict = Depends(require
     now = database.now_iso()
     conn.execute(
         "INSERT INTO button_bindings (button_key, button_label, template_id, created_at, updated_at) "
-        "VALUES (?, ?, ?, ?, ?) "
+        "VALUES (%s, %s, %s, %s, %s) "
         "ON CONFLICT(button_key) DO UPDATE SET button_label = excluded.button_label, template_id = excluded.template_id, updated_at = excluded.updated_at",
         (button_key, body.button_label or button_key, body.template_id, now, now),
     )
     conn.commit()
-    row = conn.execute("SELECT * FROM button_bindings WHERE button_key = ?", (button_key,)).fetchone()
+    row = conn.execute("SELECT * FROM button_bindings WHERE button_key = %s", (button_key,)).fetchone()
     conn.close()
     return {"success": True, "button": _button_to_dict(row)}
 
@@ -78,7 +78,7 @@ def bind_button(button_key: str, body: ButtonBind, _user: dict = Depends(require
 @router.delete("/buttons/{button_key}")
 def unbind_button(button_key: str, _user: dict = Depends(require_admin)):
     conn = database.get_connection()
-    conn.execute("DELETE FROM button_bindings WHERE button_key = ?", (button_key,))
+    conn.execute("DELETE FROM button_bindings WHERE button_key = %s", (button_key,))
     conn.commit()
     conn.close()
     return {"success": True}
@@ -92,7 +92,7 @@ class ButtonTrigger(BaseModel):
 def trigger_button(button_key: str, body: ButtonTrigger, user: dict = Depends(require_admin)):
     """Run the AWX template bound to a button against the given hosts."""
     conn = database.get_connection()
-    row = conn.execute("SELECT * FROM button_bindings WHERE button_key = ?", (button_key,)).fetchone()
+    row = conn.execute("SELECT * FROM button_bindings WHERE button_key = %s", (button_key,)).fetchone()
     if not row or not row["template_id"]:
         conn.close()
         raise HTTPException(status_code=400, detail=f"No template bound to the '{button_key}' button yet")

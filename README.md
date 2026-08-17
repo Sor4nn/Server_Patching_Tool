@@ -43,6 +43,7 @@ Run status is reconciled from AWX via `POST /api/v1/patching/runs/{id}/refresh`.
 
 - Python 3.10+
 - Node.js 18+ and npm
+- PostgreSQL 18 (database for the app)
 - AWX (https://github.com/ansible/awx/tree/devel/tools/docker-compose)
 
 ## Configuration
@@ -51,7 +52,7 @@ The application is fully **environment-variable driven**.
 
 | Variable | Purpose | Default |
 | --- | --- | --- |
-| `DB_URL` | SQLite database path | `<repo>/data/gpta.db` |
+| `DATABASE_NAME` / `DATABASE_USER` / `DATABASE_PASSWORD` / `DATABASE_HOST` / `DATABASE_PORT` | PostgreSQL 18 connection | `gpta` / `gpta` / `gpta` / `localhost` / `5432` |
 | `AWX_PROTOCOL` / `AWX_HOST` / `AWX_PORT` | AWX REST API endpoint | `https` / `YourHost` / `8443` |
 | `AWX_AUTH_MODE` | `basic` (user:password) or `token` (OAuth2 Bearer) | `basic` |
 | `AWX_USERNAME` / `AWX_PASSWORD` | AWX credentials (used when `AWX_AUTH_MODE=basic`) | placeholders |
@@ -81,7 +82,17 @@ npm run dev       # starts backend (:61008) + Vite (:3000) together
 - **Frontend (Vite)**: http://localhost:3000 — proxies `/api/*` and AWX callback paths to the backend.
 - **Backend (FastAPI)**: http://localhost:61008 — Swagger UI at `/docs`.
 
-The SQLite database is created automatically on first start (schema + seed admin + default groups).
+The PostgreSQL schema is created automatically on first start (tables + seed admin + default groups). Create the database first:
+
+```bash
+createdb gpta  # or: CREATE DATABASE gpta;
+```
+
+To migrate an existing SQLite database to PostgreSQL:
+
+```bash
+python backend/scripts/migrate_sqlite_to_pg.py
+```
 
 ## Docker
 
@@ -91,4 +102,4 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
-Multi-stage build: the frontend is compiled to static assets and served by FastAPI on port `61008` inside a single image. Data persists in the `gpta-data` volume.
+Multi-stage build: the frontend is compiled to static assets and served by FastAPI on port `61008` inside a single image. A PostgreSQL 18 container (`db`) runs alongside and holds all data in the `gpta-pgdata` volume; user files (run CSVs, vault) persist in `gpta-data`.

@@ -29,11 +29,12 @@ def _run_to_dict(row) -> dict:
 def _record_failed_run(conn, run_id, template_id, template_name, extra_vars, host_count, username, run_type="manual"):
     cur = conn.execute(
         "INSERT INTO patch_runs (run_id, template_id, template_name, status, type, extra_vars, host_count, created_by, created_at) "
-        "VALUES (?, ?, ?, 'failed', ?, ?, ?, ?, ?)",
+        "VALUES (%s, %s, %s, 'failed', %s, %s, %s, %s, %s) RETURNING id",
         (run_id, template_id, template_name, run_type, extra_vars, host_count, username, database.now_iso()),
     )
     conn.commit()
-    return _run_to_dict(conn.execute("SELECT * FROM patch_runs WHERE id = ?", (cur.lastrowid,)).fetchone())
+    row_id = cur.fetchone()["id"]
+    return _run_to_dict(conn.execute("SELECT * FROM patch_runs WHERE id = %s", (row_id,)).fetchone())
 
 
 @router.get("/health")
@@ -67,7 +68,7 @@ def runs(_user: dict = Depends(current_user)):
 @router.get("/runs/{run_id}")
 def run_detail(run_id: int, _user: dict = Depends(current_user)):
     conn = database.get_connection()
-    row = conn.execute("SELECT * FROM patch_runs WHERE id = ?", (run_id,)).fetchone()
+    row = conn.execute("SELECT * FROM patch_runs WHERE id = %s", (run_id,)).fetchone()
     conn.close()
     if not row:
         raise HTTPException(status_code=404, detail="Run not found")
@@ -90,11 +91,12 @@ def create_run(body: TriggerRun, user: dict = Depends(require_admin)):
     host_count = len(body.host_ids or [])
     cur = conn.execute(
         "INSERT INTO patch_runs (run_id, template_id, template_name, status, type, extra_vars, host_count, created_by, created_at) "
-        "VALUES (?, ?, ?, 'pending', 'manual', ?, ?, ?, ?)",
+        "VALUES (%s, %s, %s, 'pending', 'manual', %s, %s, %s, %s) RETURNING id",
         (run_id, body.template_id, template_name, body.extra_vars, host_count, user["username"], database.now_iso()),
     )
     conn.commit()
-    run = conn.execute("SELECT * FROM patch_runs WHERE id = ?", (cur.lastrowid,)).fetchone()
+    row_id = cur.fetchone()["id"]
+    run = conn.execute("SELECT * FROM patch_runs WHERE id = %s", (row_id,)).fetchone()
     conn.close()
     return {"success": True, "run": _run_to_dict(run)}
 
@@ -125,7 +127,7 @@ def orchestrate_run(conn, template_id, host_ids, extra_vars, username, run_type=
 
     hostnames = []
     if host_ids:
-        placeholders = ",".join("?" * len(host_ids))
+        placeholders = ",".join("%s" * len(host_ids))
         hostnames = [r["hostname"] for r in
                      conn.execute(f"SELECT hostname FROM hosts WHERE id IN ({placeholders})", host_ids).fetchall()]
 
@@ -161,12 +163,13 @@ def orchestrate_run(conn, template_id, host_ids, extra_vars, username, run_type=
 
     cur = conn.execute(
         "INSERT INTO patch_runs (run_id, template_id, template_name, status, type, extra_vars, host_count, created_by, created_at, started_at) "
-        "VALUES (?, ?, ?, 'running', ?, ?, ?, ?, ?, ?)",
+        "VALUES (%s, %s, %s, 'running', %s, %s, %s, %s, %s, %s) RETURNING id",
         (run_id, template_id, template_name, run_type, json.dumps(extra_vars), len(hostnames), username,
          database.now_iso(), database.now_iso()),
     )
     conn.commit()
-    run = conn.execute("SELECT * FROM patch_runs WHERE id = ?", (cur.lastrowid,)).fetchone()
+    run_id_value = cur.fetchone()["id"]
+    run = conn.execute("SELECT * FROM patch_runs WHERE id = %s", (run_id_value,)).fetchone()
     return {"success": True, "run": _run_to_dict(run), "awx": result, "hostnames": hostnames}
 
 
@@ -189,7 +192,7 @@ def trigger(body: TriggerRun, user: dict = Depends(require_admin)):
 def refresh_run(run_id: int, _user: dict = Depends(current_user)):
     """Reconcile a run's status against AWX jobs and update the DB."""
     conn = database.get_connection()
-    row = conn.execute("SELECT * FROM patch_runs WHERE id = ?", (run_id,)).fetchone()
+    row = conn.execute("SELECT * FROM patch_runs WHERE id = %s", (run_id,)).fetchone()
     if not row:
         conn.close()
         raise HTTPException(status_code=404, detail="Run not found")
@@ -197,9 +200,9 @@ def refresh_run(run_id: int, _user: dict = Depends(current_user)):
     finished = None
     if status in ("successful", "failed", "canceled", "error"):
         finished = database.now_iso()
-    conn.execute("UPDATE patch_runs SET status = ?, finished_at = COALESCE(?, finished_at) WHERE id = ?",
+    conn.execute("UPDATE patch_runs SET status = %s, finished_at = COALESCE(%s, finished_at) WHERE id = %s",
                  (status, finished, run_id))
     conn.commit()
-    row = conn.execute("SELECT * FROM patch_runs WHERE id = ?", (run_id,)).fetchone()
+    row = conn.execute("SELECT * FROM patch_runs WHERE id = %s", (run_id,)).fetchone()
     conn.close()
     return {"success": True, "run": _run_to_dict(row)}

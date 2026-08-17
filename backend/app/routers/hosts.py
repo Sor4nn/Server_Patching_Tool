@@ -14,7 +14,7 @@ def _host_row_to_dict(row) -> dict:
     host["group"] = None
     if row["group_id"]:
         conn = database.get_connection()
-        g = conn.execute("SELECT id, name FROM host_groups WHERE id = ?", (row["group_id"],)).fetchone()
+        g = conn.execute("SELECT id, name FROM host_groups WHERE id = %s", (row["group_id"],)).fetchone()
         conn.close()
         if g:
             host["group"] = {"id": g["id"], "name": g["name"]}
@@ -46,10 +46,10 @@ def list_hosts(group_id: Optional[int] = None, search: Optional[str] = None, _us
     params = []
     where = []
     if group_id:
-        where.append("group_id = ?")
+        where.append("group_id = %s")
         params.append(group_id)
     if search:
-        where.append("(hostname LIKE ? OR ip_address LIKE ? OR friendly_name LIKE ?)")
+        where.append("(hostname LIKE %s OR ip_address LIKE %s OR friendly_name LIKE %s)")
         params += [f"%{search}%"] * 3
     if where:
         query += " WHERE " + " AND ".join(where)
@@ -73,7 +73,7 @@ def host_stats(_user: dict = Depends(current_user)):
 @router.get("/{host_id}")
 def get_host(host_id: int, _user: dict = Depends(current_user)):
     conn = database.get_connection()
-    row = conn.execute("SELECT * FROM hosts WHERE id = ?", (host_id,)).fetchone()
+    row = conn.execute("SELECT * FROM hosts WHERE id = %s", (host_id,)).fetchone()
     conn.close()
     if not row:
         raise HTTPException(status_code=404, detail="Host not found")
@@ -87,14 +87,15 @@ def create_host(body: HostCreate, user: dict = Depends(require_admin)):
     try:
         cur = conn.execute(
             "INSERT INTO hosts (hostname, ip_address, os_make, os_version, friendly_name, group_id, created_at, updated_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
             (body.hostname, body.ip_address, body.os_make, body.os_version, body.friendly_name, body.group_id, now, now),
         )
-    except database.sqlite3.IntegrityError:
+    except database.IntegrityError:
         conn.close()
         raise HTTPException(status_code=409, detail="Hostname already exists")
     conn.commit()
-    row = conn.execute("SELECT * FROM hosts WHERE id = ?", (cur.lastrowid,)).fetchone()
+    host_id = cur.fetchone()["id"]
+    row = conn.execute("SELECT * FROM hosts WHERE id = %s", (host_id,)).fetchone()
     conn.close()
     return {"success": True, "host": _host_row_to_dict(row)}
 
@@ -107,15 +108,15 @@ def update_host(host_id: int, body: HostUpdate, user: dict = Depends(require_adm
     for f in fields:
         val = getattr(body, f)
         if val is not None:
-            sets.append(f"{f} = ?")
+            sets.append(f"{f} = %s")
             params.append(val)
     if not sets:
         conn.close()
         raise HTTPException(status_code=400, detail="No fields to update")
     params.append(host_id)
-    conn.execute(f"UPDATE hosts SET {', '.join(sets)}, updated_at = ? WHERE id = ?", params + [database.now_iso(), host_id])
+    conn.execute(f"UPDATE hosts SET {', '.join(sets)}, updated_at = %s WHERE id = %s", params + [database.now_iso(), host_id])
     conn.commit()
-    row = conn.execute("SELECT * FROM hosts WHERE id = ?", (host_id,)).fetchone()
+    row = conn.execute("SELECT * FROM hosts WHERE id = %s", (host_id,)).fetchone()
     conn.close()
     if not row:
         raise HTTPException(status_code=404, detail="Host not found")
@@ -125,18 +126,18 @@ def update_host(host_id: int, body: HostUpdate, user: dict = Depends(require_adm
 @router.get("/{host_id}/packages")
 def get_host_packages(host_id: int, search: Optional[str] = None, _user: dict = Depends(current_user)):
     conn = database.get_connection()
-    host = conn.execute("SELECT id FROM hosts WHERE id = ?", (host_id,)).fetchone()
+    host = conn.execute("SELECT id FROM hosts WHERE id = %s", (host_id,)).fetchone()
     if not host:
         conn.close()
         raise HTTPException(status_code=404, detail="Host not found")
-    query = "SELECT * FROM host_packages WHERE host_id = ?"
+    query = "SELECT * FROM host_packages WHERE host_id = %s"
     params = [host_id]
     if search:
-        query += " AND name LIKE ?"
+        query += " AND name LIKE %s"
         params.append(f"%{search}%")
     query += " ORDER BY name"
     rows = conn.execute(query, params).fetchall()
-    count = conn.execute("SELECT COUNT(*) AS c FROM host_packages WHERE host_id = ?", (host_id,)).fetchone()["c"]
+    count = conn.execute("SELECT COUNT(*) AS c FROM host_packages WHERE host_id = %s", (host_id,)).fetchone()["c"]
     conn.close()
     return {"success": True, "packages": [dict(r) for r in rows], "count": count}
 
@@ -144,7 +145,7 @@ def get_host_packages(host_id: int, search: Optional[str] = None, _user: dict = 
 @router.delete("/{host_id}")
 def delete_host(host_id: int, user: dict = Depends(require_admin)):
     conn = database.get_connection()
-    cur = conn.execute("DELETE FROM hosts WHERE id = ?", (host_id,))
+    cur = conn.execute("DELETE FROM hosts WHERE id = %s", (host_id,))
     conn.commit()
     conn.close()
     if cur.rowcount == 0:

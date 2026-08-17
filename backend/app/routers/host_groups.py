@@ -31,12 +31,14 @@ def list_groups(_user: dict = Depends(require_admin)):
 def create_group(body: GroupCreate, _user: dict = Depends(require_admin)):
     conn = database.get_connection()
     try:
-        cur = conn.execute("INSERT INTO host_groups (name, description) VALUES (?, ?)", (body.name, body.description))
-    except database.sqlite3.IntegrityError:
+        cur = conn.execute("INSERT INTO host_groups (name, description) VALUES (%s, %s) RETURNING id",
+                           (body.name, body.description))
+    except database.IntegrityError:
         conn.close()
         raise HTTPException(status_code=409, detail="Group name already exists")
     conn.commit()
-    row = conn.execute("SELECT * FROM host_groups WHERE id = ?", (cur.lastrowid,)).fetchone()
+    group_id = cur.fetchone()["id"]
+    row = conn.execute("SELECT * FROM host_groups WHERE id = %s", (group_id,)).fetchone()
     conn.close()
     return {"success": True, "group": dict(row)}
 
@@ -49,15 +51,15 @@ def update_group(group_id: int, body: GroupUpdate, _user: dict = Depends(require
     for f in fields:
         val = getattr(body, f)
         if val is not None:
-            sets.append(f"{f} = ?")
+            sets.append(f"{f} = %s")
             params.append(val)
     if not sets:
         conn.close()
         raise HTTPException(status_code=400, detail="No fields to update")
     params.append(group_id)
-    conn.execute(f"UPDATE host_groups SET {', '.join(sets)} WHERE id = ?", params)
+    conn.execute(f"UPDATE host_groups SET {', '.join(sets)} WHERE id = %s", params)
     conn.commit()
-    row = conn.execute("SELECT * FROM host_groups WHERE id = ?", (group_id,)).fetchone()
+    row = conn.execute("SELECT * FROM host_groups WHERE id = %s", (group_id,)).fetchone()
     conn.close()
     if not row:
         raise HTTPException(status_code=404, detail="Group not found")
@@ -67,8 +69,8 @@ def update_group(group_id: int, body: GroupUpdate, _user: dict = Depends(require
 @router.delete("/{group_id}")
 def delete_group(group_id: int, _user: dict = Depends(require_admin)):
     conn = database.get_connection()
-    conn.execute("UPDATE hosts SET group_id = NULL WHERE group_id = ?", (group_id,))
-    cur = conn.execute("DELETE FROM host_groups WHERE id = ?", (group_id,))
+    conn.execute("UPDATE hosts SET group_id = NULL WHERE group_id = %s", (group_id,))
+    cur = conn.execute("DELETE FROM host_groups WHERE id = %s", (group_id,))
     conn.commit()
     conn.close()
     if cur.rowcount == 0:

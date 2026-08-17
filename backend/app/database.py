@@ -1,22 +1,31 @@
 import hashlib
 import hmac
 import secrets
-import sqlite3
 from datetime import datetime, timedelta, timezone
+
+import psycopg
+from psycopg.rows import dict_row
 
 from . import config
 
+IntegrityError = psycopg.errors.UniqueViolation
+
 
 def get_connection():
-    conn = sqlite3.connect(config.DB_PATH, check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
+    conn = psycopg.connect(
+        dbname=config.DATABASE_NAME,
+        user=config.DATABASE_USER,
+        password=config.DATABASE_PASSWORD,
+        host=config.DATABASE_HOST,
+        port=config.DATABASE_PORT,
+        row_factory=dict_row,
+    )
     return conn
 
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     username TEXT NOT NULL UNIQUE,
     email TEXT,
     password_hash TEXT NOT NULL,
@@ -34,13 +43,13 @@ CREATE TABLE IF NOT EXISTS sessions (
 );
 
 CREATE TABLE IF NOT EXISTS host_groups (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
     description TEXT
 );
 
 CREATE TABLE IF NOT EXISTS hosts (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     hostname TEXT NOT NULL UNIQUE,
     ip_address TEXT,
     os_make TEXT,
@@ -58,7 +67,7 @@ CREATE TABLE IF NOT EXISTS hosts (
 );
 
 CREATE TABLE IF NOT EXISTS patch_runs (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     run_id TEXT NOT NULL UNIQUE,
     template_id INTEGER,
     template_name TEXT,
@@ -73,7 +82,7 @@ CREATE TABLE IF NOT EXISTS patch_runs (
 );
 
 CREATE TABLE IF NOT EXISTS host_packages (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     host_id INTEGER NOT NULL REFERENCES hosts(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
     version TEXT,
@@ -83,12 +92,16 @@ CREATE TABLE IF NOT EXISTS host_packages (
     source TEXT,
     installed_at TEXT,
     created_at TEXT NOT NULL,
+    available_version TEXT,
+    needs_update INTEGER NOT NULL DEFAULT 0,
+    is_security_update INTEGER NOT NULL DEFAULT 0,
+    category TEXT,
     UNIQUE(host_id, name, version, release, arch)
 );
 CREATE INDEX IF NOT EXISTS idx_host_packages_host ON host_packages(host_id);
 
 CREATE TABLE IF NOT EXISTS patch_policies (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
     description TEXT,
     patch_delay_type TEXT NOT NULL DEFAULT 'immediate',
@@ -103,7 +116,7 @@ CREATE TABLE IF NOT EXISTS patch_policies (
 );
 
 CREATE TABLE IF NOT EXISTS policy_assignments (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     policy_id INTEGER NOT NULL REFERENCES patch_policies(id) ON DELETE CASCADE,
     target_type TEXT NOT NULL,  -- host | host_group
     target_id INTEGER NOT NULL,
@@ -111,16 +124,16 @@ CREATE TABLE IF NOT EXISTS policy_assignments (
 );
 
 CREATE TABLE IF NOT EXISTS policy_exclusions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     policy_id INTEGER NOT NULL REFERENCES patch_policies(id) ON DELETE CASCADE,
     host_id INTEGER NOT NULL,
     UNIQUE(policy_id, host_id)
 );
 
 CREATE TABLE IF NOT EXISTS execution_options (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
-    provider TEXT NOT NULL DEFAULT 'awx',  -- awx | jenkins (future)
+    provider TEXT NOT NULL DEFAULT 'awx',  -- awx | jenkins | local
     url TEXT NOT NULL,
     auth_mode TEXT NOT NULL DEFAULT 'basic',  -- basic | token
     username TEXT,
@@ -132,7 +145,7 @@ CREATE TABLE IF NOT EXISTS execution_options (
 );
 
 CREATE TABLE IF NOT EXISTS button_bindings (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     button_key TEXT NOT NULL UNIQUE,  -- apply | snapshot | <custom>
     button_label TEXT,
     template_id INTEGER,
@@ -141,42 +154,30 @@ CREATE TABLE IF NOT EXISTS button_bindings (
 );
 """
 
-# Columns added to existing tables on upgrade (sqlite lacks ADD COLUMN IF NOT EXISTS)
-UPGRADE_COLUMNS = {
-    "host_packages": [
-        ("available_version", "TEXT"),
-        ("needs_update", "INTEGER NOT NULL DEFAULT 0"),
-        ("is_security_update", "INTEGER NOT NULL DEFAULT 0"),
-        ("category", "TEXT"),
-    ],
-}
 
-
-def _has_column(conn, table: str, column: str) -> bool:
-    cols = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
-    return column in cols
+def _execute_schema(conn):
+    for statement in SCHEMA.split(";"):
+        statement = statement.strip()
+        if statement:
+            conn.execute(statement)
 
 
 def init_db():
     conn = get_connection()
-    conn.executescript(SCHEMA)
-    for table, cols in UPGRADE_COLUMNS.items():
-        for col, ddl in cols:
-            if not _has_column(conn, table, col):
-                conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {ddl}")
+    _execute_schema(conn)
     conn.commit()
 
     # Seed host groups
     if not conn.execute("SELECT COUNT(*) AS c FROM host_groups").fetchone()["c"]:
         for name in ("Production", "Staging", "Development"):
-            conn.execute("INSERT INTO host_groups (name) VALUES (?)", (name,))
+            conn.execute("INSERT INTO host_groups (name) VALUES (%s)", (name,))
         conn.commit()
 
     # Seed admin user
-    row = conn.execute("SELECT id FROM users WHERE username = ?", (config.SEED_ADMIN_USER,)).fetchone()
+    row = conn.execute("SELECT id FROM users WHERE username = %s", (config.SEED_ADMIN_USER,)).fetchone()
     if row is None:
         conn.execute(
-            "INSERT INTO users (username, email, password_hash, is_admin, is_active, created_at) VALUES (?, ?, ?, 1, 1, ?)",
+            "INSERT INTO users (username, email, password_hash, is_admin, is_active, created_at) VALUES (%s, %s, %s, 1, 1, %s)",
             (config.SEED_ADMIN_USER, "admin@gpta.local", hash_password(config.SEED_ADMIN_PASSWORD),
              datetime.now(timezone.utc).isoformat()),
         )
@@ -187,7 +188,7 @@ def init_db():
         now = datetime.now(timezone.utc).isoformat()
         conn.execute(
             "INSERT INTO execution_options (name, provider, url, auth_mode, username, password, token, is_active, created_at, updated_at) "
-            "VALUES (?, 'awx', ?, ?, ?, ?, ?, 1, ?, ?)",
+            "VALUES (%s, 'awx', %s, %s, %s, %s, %s, 1, %s, %s)",
             ("Default AWX", f"{config.AWX_PROTOCOL}://{config.AWX_HOST}:{config.AWX_PORT}",
              config.AWX_AUTH_MODE, config.AWX_USERNAME, config.AWX_PASSWORD, config.AWX_TOKEN, now, now),
         )
@@ -215,7 +216,7 @@ def create_session(conn, user_id: int) -> str:
     now = datetime.now(timezone.utc)
     expires = now + timedelta(days=config.SESSION_TTL_DAYS)
     conn.execute(
-        "INSERT INTO sessions (token, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)",
+        "INSERT INTO sessions (token, user_id, created_at, expires_at) VALUES (%s, %s, %s, %s)",
         (token, user_id, now.isoformat(), expires.isoformat()),
     )
     conn.commit()
@@ -227,7 +228,7 @@ def get_user_by_session(token: str):
         return None
     conn = get_connection()
     row = conn.execute(
-        "SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = ? AND s.expires_at > ?",
+        "SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token = %s AND s.expires_at > %s",
         (token, datetime.now(timezone.utc).isoformat()),
     ).fetchone()
     conn.close()
@@ -236,7 +237,7 @@ def get_user_by_session(token: str):
 
 def delete_session(token: str):
     conn = get_connection()
-    conn.execute("DELETE FROM sessions WHERE token = ?", (token,))
+    conn.execute("DELETE FROM sessions WHERE token = %s", (token,))
     conn.commit()
     conn.close()
 

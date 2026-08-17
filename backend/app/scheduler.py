@@ -38,14 +38,14 @@ def _next_run_at(policy) -> str | None:
 def _policy_host_ids(conn, policy_id: int) -> list[int]:
     """Resolve the hosts a policy applies to (assignment targets minus exclusions)."""
     ids: set[int] = set()
-    for a in conn.execute("SELECT * FROM policy_assignments WHERE policy_id = ?", (policy_id,)).fetchall():
+    for a in conn.execute("SELECT * FROM policy_assignments WHERE policy_id = %s", (policy_id,)).fetchall():
         if a["target_type"] == "host":
             ids.add(a["target_id"])
         elif a["target_type"] == "host_group":
-            for r in conn.execute("SELECT id FROM hosts WHERE group_id = ?", (a["target_id"],)).fetchall():
+            for r in conn.execute("SELECT id FROM hosts WHERE group_id = %s", (a["target_id"],)).fetchall():
                 ids.add(r["id"])
     excluded = {e["host_id"] for e in
-                conn.execute("SELECT * FROM policy_exclusions WHERE policy_id = ?", (policy_id,)).fetchall()}
+                conn.execute("SELECT * FROM policy_exclusions WHERE policy_id = %s", (policy_id,)).fetchall()}
     return sorted(ids - excluded)
 
 
@@ -63,7 +63,7 @@ def run_scheduler_once():
     for policy in policies:
         # initialize next_run_at on first boot for policies not yet armed
         if not policy["next_run_at"]:
-            conn.execute("UPDATE patch_policies SET next_run_at = ?, updated_at = ? WHERE id = ?",
+            conn.execute("UPDATE patch_policies SET next_run_at = %s, updated_at = %s WHERE id = %s",
                          (_next_run_at(policy), database.now_iso(), policy["id"]))
             continue
 
@@ -80,10 +80,10 @@ def run_scheduler_once():
         if template_id:
             result = patching.orchestrate_run(conn, template_id, host_ids, extra_vars, "scheduler", "scheduled")
             if result.get("success"):
-                conn.execute("UPDATE patch_policies SET last_run_at = ?, updated_at = ? WHERE id = ?",
+                conn.execute("UPDATE patch_policies SET last_run_at = %s, updated_at = %s WHERE id = %s",
                              (database.now_iso(), database.now_iso(), policy["id"]))
         next_run = _next_run_at(policy)
-        conn.execute("UPDATE patch_policies SET next_run_at = ?, updated_at = ? WHERE id = ?",
+        conn.execute("UPDATE patch_policies SET next_run_at = %s, updated_at = %s WHERE id = %s",
                      (next_run, database.now_iso(), policy["id"]))
 
     conn.commit()

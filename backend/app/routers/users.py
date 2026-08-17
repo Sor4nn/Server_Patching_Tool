@@ -42,14 +42,15 @@ def create_user(body: UserCreate, _user: dict = Depends(require_admin)):
     conn = database.get_connection()
     try:
         cur = conn.execute(
-            "INSERT INTO users (username, email, password_hash, is_admin, is_active, created_at) VALUES (?, ?, ?, ?, 1, ?)",
+            "INSERT INTO users (username, email, password_hash, is_admin, is_active, created_at) VALUES (%s, %s, %s, %s, 1, %s) RETURNING id",
             (body.username, body.email, database.hash_password(body.password), int(body.is_admin), database.now_iso()),
         )
-    except database.sqlite3.IntegrityError:
+    except database.IntegrityError:
         conn.close()
         raise HTTPException(status_code=409, detail="Username already exists")
     conn.commit()
-    row = conn.execute("SELECT * FROM users WHERE id = ?", (cur.lastrowid,)).fetchone()
+    user_id = cur.fetchone()["id"]
+    row = conn.execute("SELECT * FROM users WHERE id = %s", (user_id,)).fetchone()
     conn.close()
     return {"success": True, "user": _public_user(row)}
 
@@ -62,18 +63,18 @@ def update_user(user_id: int, body: UserUpdate, _user: dict = Depends(require_ad
     for f in fields:
         val = getattr(body, f)
         if val is not None:
-            sets.append(f"{f} = ?")
+            sets.append(f"{f} = %s")
             params.append(int(val) if isinstance(val, bool) else val)
     if body.password:
-        sets.append("password_hash = ?")
+        sets.append("password_hash = %s")
         params.append(database.hash_password(body.password))
     if not sets:
         conn.close()
         raise HTTPException(status_code=400, detail="No fields to update")
     params.append(user_id)
-    conn.execute(f"UPDATE users SET {', '.join(sets)} WHERE id = ?", params)
+    conn.execute(f"UPDATE users SET {', '.join(sets)} WHERE id = %s", params)
     conn.commit()
-    row = conn.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+    row = conn.execute("SELECT * FROM users WHERE id = %s", (user_id,)).fetchone()
     conn.close()
     if not row:
         raise HTTPException(status_code=404, detail="User not found")
@@ -83,7 +84,7 @@ def update_user(user_id: int, body: UserUpdate, _user: dict = Depends(require_ad
 @router.delete("/{user_id}")
 def delete_user(user_id: int, _user: dict = Depends(require_admin)):
     conn = database.get_connection()
-    cur = conn.execute("DELETE FROM users WHERE id = ?", (user_id,))
+    cur = conn.execute("DELETE FROM users WHERE id = %s", (user_id,))
     conn.commit()
     conn.close()
     if cur.rowcount == 0:

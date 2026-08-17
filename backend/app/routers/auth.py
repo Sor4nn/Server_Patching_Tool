@@ -33,7 +33,7 @@ class ChangePasswordRequest(BaseModel):
 @router.post("/login")
 def login(body: LoginRequest, response: Response):
     conn = database.get_connection()
-    row = conn.execute("SELECT * FROM users WHERE username = ?", (body.username,)).fetchone()
+    row = conn.execute("SELECT * FROM users WHERE username = %s", (body.username,)).fetchone()
     if not row or not database.verify_password(body.password, row["password_hash"]):
         conn.close()
         raise HTTPException(status_code=401, detail="Invalid username or password")
@@ -41,9 +41,9 @@ def login(body: LoginRequest, response: Response):
         conn.close()
         raise HTTPException(status_code=403, detail="Account is disabled")
     token = database.create_session(conn, row["id"])
-    conn.execute("UPDATE users SET last_login = ? WHERE id = ?", (database.now_iso(), row["id"]))
+    conn.execute("UPDATE users SET last_login = %s WHERE id = %s", (database.now_iso(), row["id"]))
     conn.commit()
-    user = dict(conn.execute("SELECT * FROM users WHERE id = ?", (row["id"],)).fetchone())
+    user = dict(conn.execute("SELECT * FROM users WHERE id = %s", (row["id"],)).fetchone())
     conn.close()
     user.pop("password_hash", None)
     response.set_cookie("gpta_session", token, httponly=True, samesite="lax",
@@ -68,11 +68,11 @@ def profile(user: dict = Depends(current_user)):
 @router.post("/change-password")
 def change_password(body: ChangePasswordRequest, user: dict = Depends(current_user)):
     conn = database.get_connection()
-    row = conn.execute("SELECT * FROM users WHERE id = ?", (user["id"],)).fetchone()
+    row = conn.execute("SELECT * FROM users WHERE id = %s", (user["id"],)).fetchone()
     if not database.verify_password(body.old_password, row["password_hash"]):
         conn.close()
         raise HTTPException(status_code=400, detail="Current password is incorrect")
-    conn.execute("UPDATE users SET password_hash = ? WHERE id = ?",
+    conn.execute("UPDATE users SET password_hash = %s WHERE id = %s",
                  (database.hash_password(body.new_password), user["id"]))
     conn.commit()
     conn.close()

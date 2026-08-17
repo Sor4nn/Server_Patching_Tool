@@ -70,15 +70,16 @@ def create_option(body: OptionCreate, _user: dict = Depends(require_admin)):
     try:
         cur = conn.execute(
             "INSERT INTO execution_options (name, provider, url, auth_mode, username, password, token, is_active, created_at, updated_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
             (body.name.strip(), body.provider, body.url.strip(), body.auth_mode, body.username, body.password,
              body.token, int(was_active), now, now),
         )
-    except database.sqlite3.IntegrityError:
+    except database.IntegrityError:
         conn.close()
         raise HTTPException(status_code=409, detail="Option name already exists")
     conn.commit()
-    row = conn.execute("SELECT * FROM execution_options WHERE id = ?", (cur.lastrowid,)).fetchone()
+    option_id = cur.fetchone()["id"]
+    row = conn.execute("SELECT * FROM execution_options WHERE id = %s", (option_id,)).fetchone()
     conn.close()
     return {"success": True, "option": _option_to_dict(row)}
 
@@ -87,7 +88,7 @@ def create_option(body: OptionCreate, _user: dict = Depends(require_admin)):
 def update_option(option_id: int, body: OptionUpdate, _user: dict = Depends(require_admin)):
     _validate(body)
     conn = database.get_connection()
-    existing = conn.execute("SELECT * FROM execution_options WHERE id = ?", (option_id,)).fetchone()
+    existing = conn.execute("SELECT * FROM execution_options WHERE id = %s", (option_id,)).fetchone()
     if not existing:
         conn.close()
         raise HTTPException(status_code=404, detail="Option not found")
@@ -95,17 +96,17 @@ def update_option(option_id: int, body: OptionUpdate, _user: dict = Depends(requ
     for field in ("name", "provider", "url", "auth_mode", "username", "password", "token"):
         val = getattr(body, field)
         if val is not None:
-            sets.append(f"{field} = ?")
+            sets.append(f"{field} = %s")
             params.append(val.strip() if isinstance(val, str) else val)
     if not sets:
         conn.close()
         return {"success": True, "option": _option_to_dict(existing)}
-    sets.append("updated_at = ?")
+    sets.append("updated_at = %s")
     params.append(database.now_iso())
     params.append(option_id)
-    conn.execute(f"UPDATE execution_options SET {', '.join(sets)} WHERE id = ?", params)
+    conn.execute(f"UPDATE execution_options SET {', '.join(sets)} WHERE id = %s", params)
     conn.commit()
-    row = conn.execute("SELECT * FROM execution_options WHERE id = ?", (option_id,)).fetchone()
+    row = conn.execute("SELECT * FROM execution_options WHERE id = %s", (option_id,)).fetchone()
     conn.close()
     return {"success": True, "option": _option_to_dict(row)}
 
@@ -113,7 +114,8 @@ def update_option(option_id: int, body: OptionUpdate, _user: dict = Depends(requ
 @router.delete("/{option_id}")
 def delete_option(option_id: int, _user: dict = Depends(require_admin)):
     conn = database.get_connection()
-    cur = conn.execute("DELETE FROM execution_options WHERE id = ?", (option_id,))
+    conn = database.get_connection()
+    cur = conn.execute("DELETE FROM execution_options WHERE id = %s", (option_id,))
     conn.commit()
     conn.close()
     if cur.rowcount == 0:
@@ -124,14 +126,14 @@ def delete_option(option_id: int, _user: dict = Depends(require_admin)):
 @router.post("/{option_id}/activate")
 def activate_option(option_id: int, _user: dict = Depends(require_admin)):
     conn = database.get_connection()
-    if not conn.execute("SELECT id FROM execution_options WHERE id = ?", (option_id,)).fetchone():
+    if not conn.execute("SELECT id FROM execution_options WHERE id = %s", (option_id,)).fetchone():
         conn.close()
         raise HTTPException(status_code=404, detail="Option not found")
     conn.execute("UPDATE execution_options SET is_active = 0")
-    conn.execute("UPDATE execution_options SET is_active = 1, updated_at = ? WHERE id = ?",
+    conn.execute("UPDATE execution_options SET is_active = 1, updated_at = %s WHERE id = %s",
                  (database.now_iso(), option_id))
     conn.commit()
-    row = conn.execute("SELECT * FROM execution_options WHERE id = ?", (option_id,)).fetchone()
+    row = conn.execute("SELECT * FROM execution_options WHERE id = %s", (option_id,)).fetchone()
     conn.close()
     return {"success": True, "option": _option_to_dict(row)}
 
@@ -139,7 +141,7 @@ def activate_option(option_id: int, _user: dict = Depends(require_admin)):
 @router.post("/{option_id}/test")
 def test_option(option_id: int, _user: dict = Depends(current_user)):
     conn = database.get_connection()
-    row = conn.execute("SELECT * FROM execution_options WHERE id = ?", (option_id,)).fetchone()
+    row = conn.execute("SELECT * FROM execution_options WHERE id = %s", (option_id,)).fetchone()
     conn.close()
     if not row:
         raise HTTPException(status_code=404, detail="Option not found")

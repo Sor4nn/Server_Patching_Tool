@@ -84,7 +84,7 @@ def generate_runid(body: GenerateRunId):
     now = datetime.now(timezone.utc)
     run_id = f'{now.year}{now.month:02}{now.day:02}_{now.hour:02}{now.minute:02}{now.second:02}'
     conn = database.get_connection()
-    conn.execute("INSERT INTO patch_runs (run_id, status, type, created_at) VALUES (?, 'pending', 'callback', ?)",
+    conn.execute("INSERT INTO patch_runs (run_id, status, type, created_at) VALUES (%s, 'pending', 'callback', %s)",
                  (run_id, database.now_iso()))
     conn.commit()
     conn.close()
@@ -101,7 +101,7 @@ def update_runid(body: Notification):
     if not run_id:
         return "run_id not found in extra_vars"
     conn = database.get_connection()
-    cur = conn.execute("UPDATE patch_runs SET status = ? WHERE run_id = ?", (body.status, run_id))
+    cur = conn.execute("UPDATE patch_runs SET status = %s WHERE run_id = %s", (body.status, run_id))
     conn.commit()
     rows = cur.rowcount
     conn.close()
@@ -111,7 +111,7 @@ def update_runid(body: Notification):
 @router.post("/updatelatestpatch")
 def update_latest_patch(body: LatestPatch):
     conn = database.get_connection()
-    cur = conn.execute("UPDATE hosts SET latest_patch = ?, uptime = ?, updated_at = ? WHERE hostname = ?",
+    cur = conn.execute("UPDATE hosts SET latest_patch = %s, uptime = %s, updated_at = %s WHERE hostname = %s",
                        (body.latestpatch.upper(), body.uptime, database.now_iso(), body.hostname))
     conn.commit()
     rows = cur.rowcount
@@ -122,24 +122,24 @@ def update_latest_patch(body: LatestPatch):
 @router.post("/patch_task")
 def create_patch_task(body: PatchTask):
     conn = database.get_connection()
-    existing = conn.execute("SELECT id FROM hosts WHERE hostname = ?", (body.hostname,)).fetchone()
+    existing = conn.execute("SELECT id FROM hosts WHERE hostname = %s", (body.hostname,)).fetchone()
     now = database.now_iso()
     if existing:
         conn.execute(
-            "UPDATE hosts SET ip_address = ?, state = COALESCE(?, state), action = COALESCE(?, action), "
-            "remarks = COALESCE(?, remarks), updated_at = ? WHERE id = ?",
+            "UPDATE hosts SET ip_address = %s, state = COALESCE(%s, state), action = COALESCE(%s, action), "
+            "remarks = COALESCE(%s, remarks), updated_at = %s WHERE id = %s",
             (body.ipaddress, body.state, body.action, body.remarks, now, existing["id"]),
         )
-        row = conn.execute("SELECT * FROM hosts WHERE id = ?", (existing["id"],)).fetchone()
+        row = conn.execute("SELECT * FROM hosts WHERE id = %s", (existing["id"],)).fetchone()
         host_id = existing["id"]
     else:
         cur = conn.execute(
             "INSERT INTO hosts (hostname, ip_address, state, action, remarks, created_at, updated_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            "VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id",
             (body.hostname, body.ipaddress, body.state, body.action, body.remarks, now, now),
         )
-        host_id = cur.lastrowid
-        row = conn.execute("SELECT * FROM hosts WHERE id = ?", (host_id,)).fetchone()
+        host_id = cur.fetchone()["id"]
+        row = conn.execute("SELECT * FROM hosts WHERE id = %s", (host_id,)).fetchone()
     conn.commit()
     conn.close()
     return {"id": host_id, "runid": body.runid, "hostname": body.hostname, "state": row["state"],
@@ -149,7 +149,7 @@ def create_patch_task(body: PatchTask):
 @router.post("/updateaction")
 def update_action(body: UpdateAction):
     conn = database.get_connection()
-    cur = conn.execute("UPDATE hosts SET action = ?, updated_at = ? WHERE hostname = ?", (body.action, database.now_iso(), body.hostname))
+    cur = conn.execute("UPDATE hosts SET action = %s, updated_at = %s WHERE hostname = %s", (body.action, database.now_iso(), body.hostname))
     conn.commit()
     rows = cur.rowcount
     conn.close()
@@ -159,7 +159,7 @@ def update_action(body: UpdateAction):
 @router.post("/updateremarks")
 def update_remarks(body: UpdateRemarks):
     conn = database.get_connection()
-    cur = conn.execute("UPDATE hosts SET remarks = ?, updated_at = ? WHERE hostname = ?", (body.remarks, database.now_iso(), body.hostname))
+    cur = conn.execute("UPDATE hosts SET remarks = %s, updated_at = %s WHERE hostname = %s", (body.remarks, database.now_iso(), body.hostname))
     conn.commit()
     rows = cur.rowcount
     conn.close()
@@ -169,7 +169,7 @@ def update_remarks(body: UpdateRemarks):
 @router.post("/updateonboard")
 def update_onboard(body: UpdateOnBoard):
     conn = database.get_connection()
-    cur = conn.execute("UPDATE hosts SET state = ?, updated_at = ? WHERE hostname = ?", (body.state, database.now_iso(), body.hostname))
+    cur = conn.execute("UPDATE hosts SET state = %s, updated_at = %s WHERE hostname = %s", (body.state, database.now_iso(), body.hostname))
     conn.commit()
     rows = cur.rowcount
     conn.close()
@@ -179,22 +179,23 @@ def update_onboard(body: UpdateOnBoard):
 @router.post("/updatepackages")
 def update_packages(body: UpdatePackages):
     conn = database.get_connection()
-    host = conn.execute("SELECT id FROM hosts WHERE hostname = ?", (body.hostname,)).fetchone()
+    host = conn.execute("SELECT id FROM hosts WHERE hostname = %s", (body.hostname,)).fetchone()
     if not host:
         conn.close()
         return f"Host {body.hostname} not found"
     host_id = host["id"]
-    conn.execute("DELETE FROM host_packages WHERE host_id = ?", (host_id,))
+    conn.execute("DELETE FROM host_packages WHERE host_id = %s", (host_id,))
     now = database.now_iso()
     for pkg in body.packages:
         conn.execute(
-            "INSERT OR IGNORE INTO host_packages (host_id, name, version, release, arch, epoch, source, installed_at, created_at, "
+            "INSERT INTO host_packages (host_id, name, version, release, arch, epoch, source, installed_at, created_at, "
             "available_version, needs_update, is_security_update, category) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
+            "ON CONFLICT (host_id, name, version, release, arch) DO NOTHING",
             (host_id, pkg.name, pkg.version, pkg.release, pkg.arch, pkg.epoch, pkg.source, pkg.installed_at, now,
              pkg.available_version, int(pkg.needs_update or 0), int(pkg.is_security_update or 0), pkg.category),
         )
-    conn.execute("UPDATE hosts SET updated_at = ? WHERE id = ?", (now, host_id))
+    conn.execute("UPDATE hosts SET updated_at = %s WHERE id = %s", (now, host_id))
     conn.commit()
     conn.close()
     return f"Updated {len(body.packages)} packages for {body.hostname}"
