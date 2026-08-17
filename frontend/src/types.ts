@@ -129,6 +129,31 @@ export interface ExecutionOption {
   updated_at: string
 }
 
+export interface TreePackage {
+  name: string
+  version: string | null
+  release: string | null
+  arch: string | null
+  category: string | null
+  available_version?: string | null
+  is_security_update?: number | null
+}
+
+export interface PatchTreeNode {
+  host: Host
+  current: TreePackage[]
+  new: TreePackage[]
+}
+
+export interface ButtonBinding {
+  id: number
+  button_key: string
+  button_label: string | null
+  template_id: number | null
+  created_at: string
+  updated_at: string
+}
+
 export interface AwxTemplate {
   id: number
   name: string

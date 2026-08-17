@@ -101,6 +101,17 @@ export const api = {
     request<{ success: boolean; option: ExecutionOption }>(`/patching/options/${id}/activate`, { method: 'POST' }),
   testOption: (id: number) =>
     request<{ success: boolean; version?: string; auth_mode?: string; error?: string }>(`/patching/options/${id}/test`, { method: 'POST' }),
+
+  patchTree: () => request<{ success: boolean; tree: PatchTreeNode[] }>('/patching/tree'),
+  listButtons: () => request<{ success: boolean; buttons: ButtonBinding[] }>('/patching/buttons'),
+  bindButton: (key: string, body: Record<string, unknown>) =>
+    request<{ success: boolean; button: ButtonBinding }>(`/patching/buttons/${key}`, { method: 'PUT', body: JSON.stringify(body) }),
+  unbindButton: (key: string) => request<{ success: boolean }>(`/patching/buttons/${key}`, { method: 'DELETE' }),
+  triggerButton: (key: string, hostIds: number[]) =>
+    request<{ success: boolean; run: PatchRun; awx?: { job_id?: number }; error?: string }>(`/patching/buttons/${key}/trigger`, {
+      method: 'POST',
+      body: JSON.stringify({ host_ids: hostIds }),
+    }),
 }
 
-import type { DashboardStats, Host, HostGroup, PatchRun, User, AwxTemplate, AwxJob, HostPackage, PackageAggregate, PatchPolicy, ExecutionOption } from './types'
+import type { DashboardStats, Host, HostGroup, PatchRun, User, AwxTemplate, AwxJob, HostPackage, PackageAggregate, PatchPolicy, ExecutionOption, PatchTreeNode, ButtonBinding } from './types'

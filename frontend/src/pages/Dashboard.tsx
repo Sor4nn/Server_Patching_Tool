@@ -81,7 +81,7 @@ export default function Dashboard() {
               </table>
             </div>
           )}
-          <div className="mt"><Link to="/patching" className="btn btn-sm">View Patching →</Link></div>
+          <div className="mt"><Link to="/integration" className="btn btn-sm">View Integration →</Link></div>
         </div>
 
         <div className="card">

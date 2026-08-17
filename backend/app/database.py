@@ -130,6 +130,15 @@ CREATE TABLE IF NOT EXISTS execution_options (
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS button_bindings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    button_key TEXT NOT NULL UNIQUE,  -- apply | snapshot | <custom>
+    button_label TEXT,
+    template_id INTEGER,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
 """
 
 # Columns added to existing tables on upgrade (sqlite lacks ADD COLUMN IF NOT EXISTS)

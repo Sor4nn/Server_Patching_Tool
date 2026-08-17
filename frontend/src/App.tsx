@@ -6,6 +6,7 @@ import Dashboard from './pages/Dashboard'
 import Hosts from './pages/Hosts'
 import HostDetail from './pages/HostDetail'
 import HostGroups from './pages/HostGroups'
+import Integration from './pages/Integration'
 import Patching from './pages/Patching'
 import Packages from './pages/Packages'
 import Policies from './pages/Policies'
@@ -49,6 +50,7 @@ function Layout() {
           <NavLink to="/hosts" className="nav-item">Hosts</NavLink>
           <NavLink to="/host-groups" className="nav-item">Host Groups</NavLink>
           <NavLink to="/patching" className="nav-item">Patching</NavLink>
+          <NavLink to="/integration" className="nav-item">Integration</NavLink>
           <NavLink to="/packages" className="nav-item">Packages</NavLink>
           <NavLink to="/automation-options" className="nav-item">Automation Options</NavLink>
           {user?.is_admin === 1 && <NavLink to="/users" className="nav-item">Users</NavLink>}
@@ -71,6 +73,7 @@ function Layout() {
           <Route path="/hosts/:id" element={<HostDetail />} />
           <Route path="/host-groups" element={<HostGroups />} />
           <Route path="/patching" element={<Patching />} />
+          <Route path="/integration" element={<Integration />} />
           <Route path="/packages" element={<Packages />} />
           <Route path="/automation-options" element={<Policies />} />
           {user?.is_admin === 1 && <Route path="/users" element={<Users />} />}
