@@ -35,6 +35,13 @@ Triggering a patch run (`POST /api/v1/patching/trigger`) does:
 
 Run status is reconciled from AWX via `POST /api/v1/patching/runs/{id}/refresh`.
 
+### Local execution (self-hosted runner)
+
+Instead of AWX, the **local** provider runs playbooks in a Docker execution environment via `ansible-runner`, with no external AWX dependency. Set an execution option with `provider=local` and `url=<playbook git repo>` (branch in `username`), activate it, and runs go through `docker run <execution-environment-image> ansible-runner run /runner -p <playbook>`.
+
+- Execution environments are managed under **Assets → Exec Environments** (`/execution-environments`); the default image used for local runs is `quay.io/ansible/ansible-runner:stable-2.17-latest` unless `EXECUTION_ENVIRONMENT_IMAGE` is set.
+- The backend must be able to reach the Docker daemon (host socket `/var/run/docker.sock` is mounted in the compose deployment).
+
 ### Installed RPM collection
 
 `ansible_scripts/collect_packages.yml` collects the installed RPM list from a host (`rpm -qa`) and POSTs it to `/updatepackages`. Each host's Installed RPMs are visible on its detail page (searchable) with name, version, release, arch, and install time.
@@ -60,6 +67,7 @@ The application is fully **environment-variable driven**.
 | `AWX_VAULT_ID` / `AWX_OMD_SSH_KEY_CRED_ID` / `AWX_ITOPS_SSH_KEY_CRED_ID` | AWX credential ids | `3` / `4` / `5` |
 | `AWX_MASTER_INVENTORY` / `AWX_PROJECT` | AWX inventory / project names | `master_inventory` / `zeroops` |
 | `ENDPOINTS_BASE_URL` | Base URL for AWX callback endpoints | `http://localhost:61008` |
+| `EXECUTION_ENVIRONMENT_IMAGE` | Fallback image for local-provider runs (when no execution environment is configured) | `quay.io/ansible/ansible-runner:stable-2.17-latest` |
 | `SEED_ADMIN_USER` / `SEED_ADMIN_PASSWORD` | Admin created on first boot | `test` / `Bogdan123!` |
 | `CORS_ORIGINS` | Allowed dev origins | `http://localhost:3000` |
 

@@ -33,7 +33,7 @@ export const api = {
       body: JSON.stringify({ old_password, new_password }),
     }),
 
-  dashboardStats: () => request<{ success: boolean; stats: DashboardStats; recent_runs: PatchRun[]; recent_hosts: Host[] }>('/dashboard/stats'),
+  dashboardStats: (params = '') => request<DashboardResponse>(`/dashboard/stats${params}`),
 
   listHosts: (params = '') => request<{ success: boolean; hosts: Host[] }>(`/hosts${params}`),
   hostStats: () => request<{ success: boolean; total: number; blocked: number; completed: number; in_progress: number }>('/hosts/stats'),
@@ -130,4 +130,4 @@ export const api = {
   deleteEnvironment: (id: number) => request<{ success: boolean }>(`/execution-environment/${id}`, { method: 'DELETE' }),
 }
 
-import type { DashboardStats, Host, HostGroup, PatchRun, User, AwxTemplate, AwxJob, HostPackage, PackageAggregate, PatchPolicy, ExecutionOption, PatchTreeNode, ButtonBinding, InventorySource, ExecutionEnvironment } from './types'
+import type { DashboardResponse, Host, HostGroup, PatchRun, User, AwxTemplate, AwxJob, HostPackage, PackageAggregate, PatchPolicy, ExecutionOption, PatchTreeNode, ButtonBinding, InventorySource, ExecutionEnvironment } from './types'

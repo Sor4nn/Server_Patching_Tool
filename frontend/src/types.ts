@@ -177,6 +177,40 @@ export interface DashboardStats {
   total_groups: number
   total_users: number
   total_runs: number
+  up_to_date: number
+  needs_updates: number
+  not_reporting: number
+  outdated_packages: number
+  security_updates: number
+  needs_reboot: number
+}
+
+export interface DashboardSystem {
+  id: number
+  hostname: string
+  ip_address: string | null
+  os_make: string | null
+  os_version: string | null
+  latest_patch: string | null
+  state: string | null
+  friendly_name: string | null
+  group_id: number | null
+  group_name: string | null
+  updated_at: string
+  last_seen: string | null
+  outdated_count: number
+  status: 'up_to_date' | 'needs_updates' | 'not_reporting'
+}
+
+export interface DashboardResponse {
+  success: boolean
+  stats: DashboardStats
+  recent_runs: PatchRun[]
+  systems: DashboardSystem[]
+  total_systems: number
+  limit: number
+  offset: number
+  status: string | null
 }
 
 export interface ExecutionEnvironment {

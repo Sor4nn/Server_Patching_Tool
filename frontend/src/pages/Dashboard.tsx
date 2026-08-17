@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../App'
 import { DonutChart } from '../components/DonutChart'
+import type { DashboardResponse, DashboardStats, DashboardSystem } from '../types'
 import {
   IconServer,
   IconCheckCircle,
@@ -19,38 +20,47 @@ import {
   IconPlayCircle,
   IconEdit,
   IconRefresh,
+  IconChevronLeft,
+  IconChevronRight,
 } from '../components/Icons'
 
-interface Stats {
-  total_hosts: number
-  total_groups: number
-  total_users: number
-  total_runs: number
-}
+const PAGE_SIZE = 8
 
 export default function Dashboard() {
   const { user } = useAuth()
-  const [stats, setStats] = useState<Stats | null>(null)
+  const [data, setData] = useState<DashboardResponse | null>(null)
+  const [page, setPage] = useState(0)
+  const [statusFilter, setStatusFilter] = useState('')
   const [trendRange, setTrendRange] = useState('24h')
 
-  const load = () => {
-    api.dashboardStats().then((res) => {
-      setStats(res.stats)
+  const load = (pageNum = page, status = statusFilter) => {
+    const params = new URLSearchParams({ limit: String(PAGE_SIZE), offset: String(pageNum * PAGE_SIZE) })
+    if (status) params.set('status', status)
+    api.dashboardStats(`?${params.toString()}`).then((res) => {
+      setData(res)
+      setPage(pageNum)
+      setStatusFilter(status)
     }).catch(() => {})
   }
 
   useEffect(() => {
-    load()
+    load(0, '')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const totalHosts = stats?.total_hosts ?? 2
-  const totalRuns = stats?.total_runs ?? 3
+  const stats: DashboardStats = data?.stats ?? {
+    total_hosts: 0, total_groups: 0, total_users: 0, total_runs: 0,
+    up_to_date: 0, needs_updates: 0, not_reporting: 0,
+    outdated_packages: 0, security_updates: 0, needs_reboot: 0,
+  }
+  const systems: DashboardSystem[] = data?.systems ?? []
+  const totalSystems = data?.total_systems ?? 0
+  const totalPages = Math.max(1, Math.ceil(totalSystems / PAGE_SIZE))
 
   const updateStatusSegments = [
-    { label: 'Up to date', value: Math.max(1, totalHosts - 1), color: '#22c55e' },
-    { label: 'Needs updates', value: 0, color: '#f59e0b' },
-    { label: 'Not reporting', value: 0, color: '#ef4444' },
-    { label: 'Awaiting data', value: 1, color: '#64748b' },
+    { label: 'Up to date', value: stats.up_to_date, color: '#22c55e' },
+    { label: 'Needs updates', value: stats.needs_updates, color: '#f59e0b' },
+    { label: 'Not reporting', value: stats.not_reporting, color: '#ef4444' },
   ]
 
   const runOutcomesSegments = [
@@ -66,6 +76,14 @@ export default function Dashboard() {
     { label: 'Patch Package', value: 1, color: '#8b5cf6' },
   ]
 
+  const statusBadge = (s: DashboardSystem) => {
+    if (s.status === 'up_to_date') return <span className="badge badge-green">Up to date</span>
+    if (s.status === 'needs_updates') return <span className="badge badge-amber">Needs updates</span>
+    return <span className="badge badge-red">Not reporting</span>
+  }
+
+  const pct = (n: number) => (stats.total_hosts ? `${((n / stats.total_hosts) * 100).toFixed(1)}%` : '0%')
+
   return (
     <div>
       {/* Header */}
@@ -78,7 +96,7 @@ export default function Dashboard() {
           <button type="button" className="btn btn-sm" title="Customize layout">
             <IconEdit size={14} /> Edit dashboard
           </button>
-          <button type="button" className="btn btn-sm" onClick={load} title="Refresh data">
+          <button type="button" className="btn btn-sm" onClick={() => load()} title="Refresh data">
             <IconRefresh size={14} />
           </button>
         </div>
@@ -91,7 +109,7 @@ export default function Dashboard() {
             <span className="text-blue"><IconServer size={16} /></span>
             <span>Total Hosts</span>
           </div>
-          <div className="top-stat-value">{totalHosts}</div>
+          <div className="top-stat-value">{stats.total_hosts}</div>
         </div>
 
         <div className="top-stat-card">
@@ -99,25 +117,25 @@ export default function Dashboard() {
             <span style={{ color: 'var(--green)' }}><IconCheckCircle size={16} /></span>
             <span>Up to date</span>
           </div>
-          <div className="top-stat-value" style={{ color: 'var(--green)' }}>1</div>
+          <div className="top-stat-value" style={{ color: 'var(--green)' }}>{stats.up_to_date}</div>
         </div>
 
         <div className="top-stat-card" style={{ padding: '10px 14px' }}>
           <div className="multi-metric-box">
             <div className="multi-metric-item">
-              <strong style={{ color: '#60a5fa' }}>0.0%</strong>
-              <div style={{ fontSize: 9.5 }}>Need Updates 0/{totalHosts}</div>
+              <strong style={{ color: '#60a5fa' }}>{pct(stats.needs_updates)}</strong>
+              <div style={{ fontSize: 9.5 }}>Need Updates {stats.needs_updates}/{stats.total_hosts}</div>
             </div>
             <div className="multi-metric-item">
-              <strong style={{ color: '#ef4444' }}>0</strong>
-              <div style={{ fontSize: 9.5 }}>Security 0%</div>
+              <strong style={{ color: '#ef4444' }}>{stats.security_updates}</strong>
+              <div style={{ fontSize: 9.5 }}>Security {pct(stats.security_updates)}</div>
             </div>
             <div className="multi-metric-item">
-              <strong style={{ color: 'var(--green)' }}>100%</strong>
-              <div style={{ fontSize: 9.5 }}>Reporting {totalHosts}/{totalHosts}</div>
+              <strong style={{ color: 'var(--green)' }}>{stats.total_hosts - stats.not_reporting}/{stats.total_hosts}</strong>
+              <div style={{ fontSize: 9.5 }}>Reporting</div>
             </div>
             <div className="multi-metric-item">
-              <strong className="muted">0</strong>
+              <strong className="muted">{stats.total_hosts ? (stats.outdated_packages / stats.total_hosts).toFixed(1) : 0}</strong>
               <div style={{ fontSize: 9.5 }}>Avg/Host outdated</div>
             </div>
           </div>
@@ -128,7 +146,7 @@ export default function Dashboard() {
             <span style={{ color: 'var(--amber)' }}><IconAlertTriangle size={16} /></span>
             <span>Needs Updating</span>
           </div>
-          <div className="top-stat-value" style={{ color: 'var(--amber)' }}>0</div>
+          <div className="top-stat-value" style={{ color: 'var(--amber)' }}>{stats.needs_updates}</div>
         </div>
 
         <div className="top-stat-card">
@@ -136,7 +154,7 @@ export default function Dashboard() {
             <span style={{ color: 'var(--amber)' }}><IconRestart size={16} /></span>
             <span>Needs Reboots</span>
           </div>
-          <div className="top-stat-value" style={{ color: 'var(--amber)' }}>0</div>
+          <div className="top-stat-value" style={{ color: 'var(--amber)' }}>{stats.needs_reboot}</div>
         </div>
       </div>
 
@@ -147,7 +165,7 @@ export default function Dashboard() {
             <span className="text-blue"><IconPackage size={15} /></span>
             <span>Outdated Packages</span>
           </div>
-          <div className="top-stat-value">0</div>
+          <div className="top-stat-value">{stats.outdated_packages}</div>
         </div>
 
         <div className="top-stat-card">
@@ -155,7 +173,7 @@ export default function Dashboard() {
             <span style={{ color: 'var(--red)' }}><IconShield size={15} /></span>
             <span>Security Updates</span>
           </div>
-          <div className="top-stat-value" style={{ color: 'var(--red)' }}>0</div>
+          <div className="top-stat-value" style={{ color: 'var(--red)' }}>{stats.security_updates}</div>
         </div>
 
         <div className="top-stat-card">
@@ -306,7 +324,7 @@ export default function Dashboard() {
                 <span className="metric-icon text-blue"><IconShield size={16} /></span>
                 <div>
                   <div className="metric-label">Never scanned</div>
-                  <div className="metric-val">2</div>
+                  <div className="metric-val">{stats.not_reporting}</div>
                 </div>
               </div>
             </div>
@@ -325,25 +343,67 @@ export default function Dashboard() {
 
         <div className="widget-card">
           <div className="widget-header">
-            <h3 className="widget-title">Recent Collection</h3>
-            <span className="badge badge-blue">2 hosts</span>
+            <h3 className="widget-title">Systems Patch Status</h3>
+            <span className="badge badge-blue">{totalSystems} systems</span>
           </div>
           <div className="widget-body">
+            <div className="flex" style={{ gap: 4, marginBottom: 8, flexWrap: 'wrap' }}>
+              {['', 'up_to_date', 'needs_updates', 'not_reporting'].map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  className={`badge ${statusFilter === s ? 'badge-blue' : 'badge-gray'}`}
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => load(0, s)}
+                >
+                  {s === '' ? 'All' : s.replace('_', ' ')}
+                </button>
+              ))}
+            </div>
             <table style={{ fontSize: 11.5 }}>
               <thead>
-                <tr><th>HOST</th><th>LAST UPDATE</th></tr>
+                <tr><th>HOST</th><th>OS</th><th>STATUS</th><th>OUTDATED</th><th>LAST SEEN</th></tr>
               </thead>
               <tbody>
-                <tr>
-                  <td className="mono" style={{ color: '#60a5fa' }}>192.168.1.214</td>
-                  <td className="muted">45 min ago</td>
-                </tr>
-                <tr>
-                  <td className="mono" style={{ color: '#60a5fa' }}>146.59.92.95</td>
-                  <td className="muted">3 hours ago</td>
-                </tr>
+                {systems.map((s) => (
+                  <tr key={s.id}>
+                    <td>
+                      <Link to={`/hosts/${s.id}`} className="mono" style={{ color: '#60a5fa' }}>
+                        {s.friendly_name || s.hostname}
+                      </Link>
+                    </td>
+                    <td className="muted">{s.os_version || s.os_make || '-'}</td>
+                    <td>{statusBadge(s)}</td>
+                    <td>{s.outdated_count > 0 ? <strong style={{ color: 'var(--amber)' }}>{s.outdated_count}</strong> : 0}</td>
+                    <td className="muted">{s.last_seen ? new Date(s.last_seen).toLocaleString() : '-'}</td>
+                  </tr>
+                ))}
+                {systems.length === 0 && (
+                  <tr><td colSpan={5} className="muted">No systems in this view.</td></tr>
+                )}
               </tbody>
             </table>
+            <div className="flex" style={{ gap: 8, justifyContent: 'flex-end', alignItems: 'center', marginTop: 8 }}>
+              <button
+                type="button"
+                className="btn btn-sm"
+                disabled={page === 0}
+                onClick={() => load(page - 1)}
+              >
+                <IconChevronLeft size={12} /> Prev
+              </button>
+              <span className="muted" style={{ fontSize: 11 }}>
+                Page {page + 1} / {totalPages}
+              </span>
+              <button
+                type="button"
+                className="btn btn-sm"
+                disabled={page + 1 >= totalPages}
+                onClick={() => load(page + 1)}
+              >
+                Next <IconChevronRight size={12} />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -384,7 +444,7 @@ export default function Dashboard() {
                 <span className="metric-icon text-blue"><IconList size={16} /></span>
                 <div>
                   <div className="metric-label">Total Runs</div>
-                  <div className="metric-val">{totalRuns}</div>
+                  <div className="metric-val">{stats.total_runs}</div>
                 </div>
               </div>
               <div className="metric-box">
