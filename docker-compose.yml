@@ -31,6 +31,7 @@ services:
       - DATABASE_PASSWORD=${POSTGRES_PASSWORD:-gpta}
       - DATABASE_NAME=${POSTGRES_DB:-gpta}
       - DATA_DIR=/data
+      - RUNS_DIR=/data/gpta-runs
       - USER_FILES_PATH=/data/user_files
       - AWX_PROTOCOL=${AWX_PROTOCOL:-https}
       - AWX_HOST=${AWX_HOST:-YourHost}
@@ -50,6 +51,7 @@ services:
       - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
     volumes:
       - gpta-data:/data
+      - /data/gpta-runs:/data/gpta-runs:z
       - /var/run/docker.sock:/var/run/docker.sock
 
 volumes:

@@ -98,7 +98,7 @@ def run_playbook(*, run_id: str, repo_url: str, branch: str, playbook: str,
 
     Returns dict(result): success, exit_code, output, artifacts_dir.
     """
-    run_dir = config.DATA_DIR / "runs" / run_id
+    run_dir = config.RUNS_DIR / run_id
     if run_dir.exists():
         shutil.rmtree(run_dir)
     for d in ("project", "inventory", "env", "artifacts"):
@@ -134,7 +134,7 @@ def run_playbook(*, run_id: str, repo_url: str, branch: str, playbook: str,
     image = _resolve_image(execution_environment)
     cmd = [
         "docker", "run", "--rm",
-        "-v", f"{run_dir}:/runner", "--network", "host",
+        "-v", f"{run_dir}:/runner:z", "--network", "host",
         image, "ansible-runner", "run", "/runner", "-p", playbook,
     ]
 

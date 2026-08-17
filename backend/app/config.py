@@ -6,6 +6,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Legacy SQLite path (used only by the migration script)
 DB_PATH = Path(os.getenv("DB_URL", str(BASE_DIR / "data" / "gpta.db")))
 DATA_DIR = Path(os.getenv("DATA_DIR", str(BASE_DIR / "data")))
+RUNS_DIR = Path(os.getenv("RUNS_DIR", str(DATA_DIR / "runs")))
 USER_FILES = Path(os.getenv("USER_FILES_PATH", str(DATA_DIR / "user_files")))
 VAULT_DIR = Path(os.getenv("AWX_MASTER_VAULT", str(DATA_DIR / "vault")))
 
@@ -16,7 +17,7 @@ DATABASE_PASSWORD = os.getenv("DATABASE_PASSWORD", "gpta")
 DATABASE_HOST = os.getenv("DATABASE_HOST", "localhost")
 DATABASE_PORT = os.getenv("DATABASE_PORT", "5432")
 
-for d in (DATA_DIR, USER_FILES, VAULT_DIR):
+for d in (DATA_DIR, RUNS_DIR, USER_FILES, VAULT_DIR):
     d.mkdir(parents=True, exist_ok=True)
 
 # AWX connection
