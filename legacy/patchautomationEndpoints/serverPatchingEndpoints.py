@@ -24,6 +24,7 @@ from datetime import datetime
 import json
 from typing import Optional
 from pydantic import BaseModel
+import properties
 from awx_api import *
 import sqlite3
 import uvicorn
@@ -339,3 +340,38 @@ async def updateremarks(request_data: request_data):
 def awx_endpoint(data: awx_data):
     response = awx_handler(data)
     return response
+
+
+class LaunchJob(BaseModel):
+    template_id: int
+    extra_vars: Optional[str] = ""
+
+
+# AWX integration - health
+@app.get("/awx_health")
+async def awx_health():
+    return get_awx_health()
+
+
+# AWX integration - job templates
+@app.get("/awx_templates")
+async def awx_templates():
+    return get_job_templates_list()
+
+
+# AWX integration - jobs list (optional status filter)
+@app.get("/awx_jobs")
+async def awx_jobs(status: Optional[str] = None):
+    return get_jobs(status=status)
+
+
+# AWX integration - single job status
+@app.get("/awx_jobs/{job_id}")
+async def awx_job_detail(job_id: int):
+    return get_job(job_id)
+
+
+# AWX integration - launch a job template
+@app.post("/awx_launch")
+async def awx_launch(job: LaunchJob):
+    return launch_job(job.template_id, job.extra_vars)

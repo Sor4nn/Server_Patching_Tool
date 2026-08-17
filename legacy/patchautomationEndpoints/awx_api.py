@@ -21,6 +21,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. """
 
 import urllib3
 import os
+import tempfile
 import requests
 import pandas as pd
 from pydantic import BaseModel
@@ -316,7 +317,7 @@ def awx_handler(data):
             host_csv_content = csv_file.read()
         print("Fetched data from yml")
 
-        with open("/tmp/test_" + file_name + ".csv", 'w') as temp_csv:
+        with open(os.path.join(tempfile.gettempdir(), "test_" + file_name + ".csv"), 'w') as temp_csv:
             print("Vault written")
             temp_csv.write(host_csv_content)
 
@@ -353,9 +354,93 @@ def awx_handler(data):
     return "Successful"
 
 
+def _awx_url(path):
+    return f"{protocol}://{host}:{port}{path}"
+
+
+def get_awx_health():
+    try:
+        response = requests.get(_awx_url("/api/v2/ping/"), auth=(user_name, password), verify=False, timeout=15)
+        response.raise_for_status()
+        data = response.json()
+        return {"success": True, "version": data.get("version"), "instances": len(data.get("instances", [])),
+                "ha_capacity": data.get("ha_capacity")}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def get_job_templates_list():
+    try:
+        response = requests.get(_awx_url("/api/v2/job_templates/?page_size=100"), auth=(user_name, password),
+                                verify=False, timeout=15)
+        response.raise_for_status()
+        templates = [{"id": t["id"], "name": t["name"], "playbook": t["playbook"], "status": t["status"],
+                      "job_type": t["job_type"]} for t in response.json().get("results", [])]
+        return {"success": True, "templates": templates}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def get_jobs(status=None, page_size=50):
+    try:
+        url = _awx_url(f"/api/v2/jobs/?page_size={page_size}&order_by=-created")
+        if status:
+            url += f"&status={status}"
+        response = requests.get(url, auth=(user_name, password), verify=False, timeout=15)
+        response.raise_for_status()
+        jobs = [{"id": j["id"], "name": j["name"], "status": j["status"],
+                 "job_template": j.get("job_template"), "type": j.get("type"),
+                 "started": j.get("started"), "finished": j.get("finished")}
+                for j in response.json().get("results", [])]
+        return {"success": True, "jobs": jobs}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def get_job(job_id):
+    try:
+        response = requests.get(_awx_url(f"/api/v2/jobs/{job_id}/"), auth=(user_name, password), verify=False,
+                                timeout=15)
+        response.raise_for_status()
+        data = response.json()
+        return {"success": True, "job": {"id": data["id"], "name": data["name"], "status": data["status"],
+                                         "job_type": data.get("job_type"), "started": data.get("started"),
+                                         "finished": data.get("finished"), "failed": data.get("failed"),
+                                         "elapsed": data.get("elapsed"), "job_explanation": data.get("job_explanation")}}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def launch_job(template_id, extra_vars=""):
+    try:
+        job_template_data = get_job_template_data(template_id)
+        base_template_name = job_template_data["name"]
+        parts = base_template_name.split("_2")
+        template_name = parts[0]
+        launch_creds = {
+            "monitorit": ["get_server_details", "onboard_hosts", "onboard_reboot_hosts", "latest_patch_checker"],
+            "itops": ["onboard_check", "onepatch_execution", "server_reboot"]
+        }
+        if template_name in launch_creds["monitorit"]:
+            cred_list = [vault_id, omd_ssh_key_cred_id]
+        elif template_name in launch_creds["itops"]:
+            cred_list = [vault_id, itops_ssh_key_cred_id]
+        else:
+            cred_list = [vault_id]
+        body = {"credentials": cred_list}
+        if extra_vars:
+            body["extra_vars"] = extra_vars
+        response = requests.post(_awx_url(f"/api/v2/job_templates/{template_id}/launch/"), auth=(user_name, password),
+                                 json=body, verify=False, timeout=30)
+        response.raise_for_status()
+        return {"success": True, "job_id": response.json().get("id")}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
 def generate_runid(upload_id):
     json_body = {"uploadid": str(upload_id)}
-    url = '<url for generate runid>'
+    url = f'{properties.endpoints_base_url}/generate_runid'
     response = requests.post(url=url, json=json_body)
     return response.json()['run_id']
 
@@ -372,8 +457,10 @@ def awx_patch_handler(patch_enabled_hosts, task):
         host_list.append(hosts[0])
     patch_data = awx_data
     patch_data.task, patch_data.run_id, patch_data.host_csv = task, run_id, master_vault + f'{run_id}_{task}.csv'
+    os.makedirs(master_vault, exist_ok=True)
+    os.makedirs(properties.user_files_path, exist_ok=True)
     pd.DataFrame(host_list).to_csv(master_vault + f'{run_id}_{task}.csv', header=['host'], index=False)
-    pd.DataFrame(host_list).to_csv('/apps/zeroops/playwright/user_files/' + f'{run_id}_{task}.csv', header=['host'],
+    pd.DataFrame(host_list).to_csv(properties.user_files_path + '/' + f'{run_id}_{task}.csv', header=['host'],
                                    index=False)
     awx_handler(patch_data)
     print(patch_data.task, patch_data.run_id, patch_data.host_csv)

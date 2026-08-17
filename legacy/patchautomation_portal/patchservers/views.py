@@ -20,11 +20,21 @@ OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. """
 
 import time
-from django.http import HttpResponseRedirect, HttpResponse
-from django.shortcuts import render
+from django.http import HttpResponseRedirect, HttpResponse, JsonResponse
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from django.contrib.auth import get_user_model
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.db.models import Count, CharField, Value
 import threading
-from .awx_helper import callget_serverdetails, callonboardchecker
+from .awx_helper import (
+    callget_serverdetails,
+    callonboardchecker,
+    get_awx_health,
+    get_awx_job_templates,
+    get_awx_jobs,
+    launch_awx_job,
+)
 from .utility import (
     callplaywirght,
     convert_map_to_list,
@@ -1142,4 +1152,66 @@ def add_application(request):
             "result":result,
         }
         return render(request,"add_instance.html",context)
+
+
+@login_required
+def integration(request):
+    health = get_awx_health()
+    templates = get_awx_job_templates()
+    jobs = get_awx_jobs()
+    context = {"health": health, "templates": templates, "jobs": jobs}
+    return render(request, "integration.html", context)
+
+
+@login_required
+def integration_jobs(request):
+    return JsonResponse(get_awx_jobs())
+
+
+@login_required
+def integration_launch(request, template_id):
+    extra_vars = request.POST.get("extra_vars", "")
+    result = launch_awx_job(template_id, extra_vars)
+    if request.POST.get("ajax"):
+        return JsonResponse(result)
+    if result.get("success"):
+        messages.success(request, f"Job launched with id {result['job_id']}")
+    else:
+        messages.error(request, f"Launch failed: {result.get('error')}")
+    return HttpResponseRedirect("/integration/")
+
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def users(request):
+    User = get_user_model()
+    if request.method == "POST":
+        username = request.POST.get("username")
+        password = request.POST.get("password")
+        email = request.POST.get("email", "")
+        is_staff = request.POST.get("is_staff") == "on"
+        is_superuser = request.POST.get("is_superuser") == "on"
+        if username and password:
+            if User.objects.filter(username=username).exists():
+                messages.error(request, f"User '{username}' already exists.")
+            else:
+                user = User.objects.create_user(username=username, password=password, email=email,
+                                                is_staff=is_staff, is_superuser=is_superuser)
+                messages.success(request, f"User '{user.username}' created.")
+                return HttpResponseRedirect("/users/")
+        else:
+            messages.error(request, "Username and password are required.")
+    context = {"users": User.objects.all().order_by("username")}
+    return render(request, "users.html", context)
+
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+def toggle_user(request, user_id):
+    User = get_user_model()
+    user = User.objects.get(pk=user_id)
+    if user != request.user:
+        user.is_active = not user.is_active
+        user.save()
+    return HttpResponseRedirect("/users/")
     

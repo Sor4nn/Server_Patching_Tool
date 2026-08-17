@@ -1,0 +1,34 @@
+import os
+from pathlib import Path
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+DB_PATH = Path(os.getenv("DB_URL", str(BASE_DIR / "data" / "gpta.db")))
+DATA_DIR = Path(os.getenv("DATA_DIR", str(BASE_DIR / "data")))
+USER_FILES = Path(os.getenv("USER_FILES_PATH", str(DATA_DIR / "user_files")))
+VAULT_DIR = Path(os.getenv("AWX_MASTER_VAULT", str(DATA_DIR / "vault")))
+
+for d in (DATA_DIR, USER_FILES, VAULT_DIR):
+    d.mkdir(parents=True, exist_ok=True)
+
+# AWX connection
+AWX_PROTOCOL = os.getenv("AWX_PROTOCOL", "https")
+AWX_HOST = os.getenv("AWX_HOST", "YourHost")
+AWX_PORT = os.getenv("AWX_PORT", "8443")
+AWX_USERNAME = os.getenv("AWX_USERNAME", "<username>")
+AWX_PASSWORD = os.getenv("AWX_PASSWORD", "<password>")
+AWX_VAULT_ID = int(os.getenv("AWX_VAULT_ID", "3"))
+AWX_OMD_SSH_KEY_CRED_ID = int(os.getenv("AWX_OMD_SSH_KEY_CRED_ID", "4"))
+AWX_ITOPS_SSH_KEY_CRED_ID = int(os.getenv("AWX_ITOPS_SSH_KEY_CRED_ID", "5"))
+
+# Endpoints self base (for AWX callbacks back into this app)
+ENDPOINTS_BASE_URL = os.getenv("ENDPOINTS_BASE_URL", "http://localhost:61008")
+
+# Security
+SESSION_TTL_DAYS = int(os.getenv("SESSION_TTL_DAYS", "7"))
+
+# Seed admin
+SEED_ADMIN_USER = os.getenv("SEED_ADMIN_USER", "test")
+SEED_ADMIN_PASSWORD = os.getenv("SEED_ADMIN_PASSWORD", "Bogdan123!")
+
+CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",")

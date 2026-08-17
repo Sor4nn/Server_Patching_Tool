@@ -1,0 +1,16 @@
+{
+  "name": "gpta",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "setup": "python -m pip install -r requirements.txt && npm --prefix frontend install",
+    "dev": "concurrently -n backend,frontend -c blue,magenta \"python -m uvicorn app.main:app --app-dir backend --host 0.0.0.0 --port 61008\" \"npm --prefix frontend run dev\"",
+    "dev:backend": "python -m uvicorn app.main:app --app-dir backend --host 0.0.0.0 --port 61008 --reload",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "build": "npm --prefix frontend run build",
+    "start": "npm run build && python -m uvicorn app.main:app --app-dir backend --host 0.0.0.0 --port 61008"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.1"
+  }
+}

@@ -1,0 +1,73 @@
+const BASE = '/api/v1'
+
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const response = await fetch(BASE + path, {
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+    ...options,
+  })
+  if (!response.ok) {
+    let detail = response.statusText
+    try {
+      const body = await response.json()
+      detail = body.detail || body.error || detail
+    } catch {
+      /* keep statusText */
+    }
+    throw new Error(detail)
+  }
+  return response.json() as Promise<T>
+}
+
+export const api = {
+  login: (username: string, password: string) =>
+    request<{ success: boolean; user: User }>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ username, password }),
+    }),
+  logout: () => request<{ success: boolean }>('/auth/logout', { method: 'POST' }),
+  profile: () => request<{ success: boolean; user: User }>('/auth/profile'),
+  changePassword: (old_password: string, new_password: string) =>
+    request<{ success: boolean }>('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ old_password, new_password }),
+    }),
+
+  dashboardStats: () => request<{ success: boolean; stats: DashboardStats; recent_runs: PatchRun[]; recent_hosts: Host[] }>('/dashboard/stats'),
+
+  listHosts: (params = '') => request<{ success: boolean; hosts: Host[] }>(`/hosts${params}`),
+  hostStats: () => request<{ success: boolean; total: number; blocked: number; completed: number; in_progress: number }>('/hosts/stats'),
+  getHost: (id: number) => request<{ success: boolean; host: Host }>(`/hosts/${id}`),
+  createHost: (body: Record<string, unknown>) =>
+    request<{ success: boolean; host: Host }>('/hosts', { method: 'POST', body: JSON.stringify(body) }),
+  updateHost: (id: number, body: Record<string, unknown>) =>
+    request<{ success: boolean; host: Host }>(`/hosts/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  deleteHost: (id: number) => request<{ success: boolean }>(`/hosts/${id}`, { method: 'DELETE' }),
+
+  listGroups: () => request<{ success: boolean; groups: HostGroup[] }>('/host-groups'),
+  createGroup: (body: Record<string, unknown>) =>
+    request<{ success: boolean; group: HostGroup }>('/host-groups', { method: 'POST', body: JSON.stringify(body) }),
+  updateGroup: (id: number, body: Record<string, unknown>) =>
+    request<{ success: boolean; group: HostGroup }>(`/host-groups/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  deleteGroup: (id: number) => request<{ success: boolean }>(`/host-groups/${id}`, { method: 'DELETE' }),
+
+  listUsers: () => request<{ success: boolean; users: User[] }>('/users'),
+  createUser: (body: Record<string, unknown>) =>
+    request<{ success: boolean; user: User }>('/users', { method: 'POST', body: JSON.stringify(body) }),
+  updateUser: (id: number, body: Record<string, unknown>) =>
+    request<{ success: boolean; user: User }>(`/users/${id}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  deleteUser: (id: number) => request<{ success: boolean }>(`/users/${id}`, { method: 'DELETE' }),
+
+  awxHealth: () => request<{ success: boolean; version?: string; instances?: number; ha_capacity?: number; error?: string }>('/patching/health'),
+  awxTemplates: () => request<{ success: boolean; templates?: AwxTemplate[]; error?: string }>('/patching/templates'),
+  awxJobs: () => request<{ success: boolean; jobs?: AwxJob[]; error?: string }>('/patching/jobs'),
+  triggerRun: (body: { template_id: number; host_ids?: number[]; extra_vars?: string }) =>
+    request<{ success: boolean; run: PatchRun; awx?: { job_id?: number }; error?: string }>('/patching/trigger', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+  listRuns: () => request<{ success: boolean; runs: PatchRun[] }>('/patching/runs'),
+  getRun: (id: number) => request<{ success: boolean; run: PatchRun }>(`/patching/runs/${id}`),
+}
+
+import type { DashboardStats, Host, HostGroup, PatchRun, User, AwxTemplate, AwxJob } from './types'

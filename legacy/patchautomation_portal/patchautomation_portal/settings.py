@@ -36,16 +36,20 @@ import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-LOG_DIR = "/var/log"
+LOG_DIR = os.getenv("LOG_DIR", str(BASE_DIR.parent / "logs"))
+os.makedirs(LOG_DIR, exist_ok=True)
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-3#cy7e)9ldj_ko=c&v#d72cto__84i*3biu1@v)&%viql2arc2"
+SECRET_KEY = os.getenv(
+    "DJANGO_SECRET_KEY",
+    "django-insecure-3#cy7e)9ldj_ko=c&v#d72cto__84i*3biu1@v)&%viql2arc2",
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv("DJANGO_DEBUG", "True").lower() in ("1", "true", "yes")
 
 ALLOWED_HOSTS = [
     "localhost",
@@ -104,7 +108,10 @@ WSGI_APPLICATION = "patchautomation_portal.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": "../database/server_patch_db.sqlite3",
+        "NAME": os.getenv(
+            "DB_URL",
+            str(BASE_DIR.parent / "database" / "server_patch_db.sqlite3"),
+        ),
     }
     #    'default': {
     #    'ENGINE': 'django.db.backends.postgresql',
@@ -118,7 +125,11 @@ DATABASES = {
 
 
 # Password validation
-# https://docs.djangoproject.com/en/4.0/ref/settings/#auth-password-validators
+# https://docs.djangoproject.com/en/4.0/topics/auth/#module-django.contrib.auth
+
+LOGIN_URL = "/accounts/login/"
+LOGIN_REDIRECT_URL = "/home/"
+LOGOUT_REDIRECT_URL = "/accounts/login/"
 
 AUTH_PASSWORD_VALIDATORS = [
     {

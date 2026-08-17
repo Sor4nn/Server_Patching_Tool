@@ -19,18 +19,30 @@ LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. """
 
+import os
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+
+
+def _ensure_dir(path):
+    os.makedirs(path, exist_ok=True)
+    return path
+
+
 # awx_helper.py and views.py variables
-awx_url="http://<YourHost>/awx_handler"
-host_file_path="/apps/zeroops/playwright/user_files"
-prop_file_path="/apps/zeroops/playwright/user_var"
-mpa_url="https://dummy_url"
+awx_url = os.getenv("AWX_URL", "http://localhost:61008/awx_handler")
+endpoints_base_url = os.getenv("ENDPOINTS_BASE_URL", "http://localhost:61008")
+host_file_path = _ensure_dir(os.getenv("USER_FILES_PATH", str(REPO_ROOT / "user_files")))
+prop_file_path = _ensure_dir(os.getenv("PROP_FILE_PATH", str(REPO_ROOT / "user_var")))
+mpa_url = os.getenv("MPA_URL", "https://dummy_url")
 
 # utility.py variables
 
-workdir = "/app/mp"
-volumes = "/apps/zeroops/playwright:/app/mp"
-image_name = "playwright_env:1.41.1"
-pythonMpa = "/app/mp/fetch_password_from_mpa.py"
+workdir = _ensure_dir(os.getenv("PORTAL_WORKDIR", str(REPO_ROOT / "user_files")))
+volumes = os.getenv("PORTAL_VOLUMES", str(REPO_ROOT / "user_files") + ":/app/mp")
+image_name = os.getenv("PLAYWRIGHT_IMAGE", "playwright_env:1.41.1")
+pythonMpa = os.getenv("PYTHON_MPA", "/app/mp/fetch_password_from_mpa.py")
 
 
 

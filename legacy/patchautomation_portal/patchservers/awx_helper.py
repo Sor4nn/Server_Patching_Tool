@@ -36,6 +36,47 @@ host_file_path = variables.host_file_path
 prop_file_path = variables.prop_file_path
 
 
+def _endpoint(path):
+    return f"{variables.endpoints_base_url}{path}"
+
+
+def get_awx_health():
+    try:
+        response = requests.get(_endpoint("/awx_health"), timeout=15)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def get_awx_job_templates():
+    try:
+        response = requests.get(_endpoint("/awx_templates"), timeout=15)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def get_awx_jobs():
+    try:
+        response = requests.get(_endpoint("/awx_jobs"), timeout=15)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+def launch_awx_job(template_id, extra_vars=""):
+    try:
+        response = requests.post(_endpoint("/awx_launch"),
+                                 json={"template_id": template_id, "extra_vars": extra_vars}, timeout=30)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
 
 
 def callget_serverdetails(runid):

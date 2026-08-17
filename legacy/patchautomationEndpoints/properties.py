@@ -19,16 +19,31 @@ LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
 OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. """
 
+import os
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parent.parent
+
+
+def _get_int(name, default):
+    try:
+        return int(os.getenv(name, default))
+    except ValueError:
+        return default
+
+
 # awx_api.py
 
-user_name = "<username>"
-password = "<password>"
+user_name = os.getenv("AWX_USERNAME", "<username>")
+password = os.getenv("AWX_PASSWORD", "<password>")
 
-host = '<YourHost>'
-port = '8443'
-protocol = "https"
-vault_id = 3
-omd_ssh_key_cred_id = 4
-itops_ssh_key_cred_id = 5
-master_vault = '<AWX DOCKER VAULT LOCATION>'
-database_url="..//database//server_patch_db.sqlite3"
+host = os.getenv("AWX_HOST", "YourHost")
+port = os.getenv("AWX_PORT", "8443")
+protocol = os.getenv("AWX_PROTOCOL", "https")
+vault_id = _get_int("AWX_VAULT_ID", 3)
+omd_ssh_key_cred_id = _get_int("AWX_OMD_SSH_KEY_CRED_ID", 4)
+itops_ssh_key_cred_id = _get_int("AWX_ITOPS_SSH_KEY_CRED_ID", 5)
+master_vault = os.getenv("AWX_MASTER_VAULT", str(REPO_ROOT / "data" / "vault"))
+user_files_path = os.getenv("USER_FILES_PATH", str(REPO_ROOT / "user_files"))
+endpoints_base_url = os.getenv("ENDPOINTS_BASE_URL", "http://localhost:61008")
+database_url = os.getenv("DB_URL", str(REPO_ROOT / "database" / "server_patch_db.sqlite3"))

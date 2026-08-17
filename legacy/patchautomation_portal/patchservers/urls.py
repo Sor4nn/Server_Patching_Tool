@@ -22,9 +22,12 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE. """
 # pages/urls.py
 
 from django.urls import path
+from django.contrib.auth import views as auth_views
 from patchservers import views
 
 urlpatterns = [
+    path("accounts/login/", auth_views.LoginView.as_view(template_name="accounts/login.html"), name="login"),
+    path("accounts/logout/", auth_views.LogoutView.as_view(), name="logout"),
     path('invokempa/<str:uploadid>/<str:operation>',views.invokempa, name="invokempa"),
     path('downloadrun/<str:uploadid>',views.downloadrun, name="downloadrun"),
     path("getdump/<str:appname>",views.getdump, name="getdump"),
@@ -43,4 +46,9 @@ urlpatterns = [
     path('dashboard/',views.dashboard,name="dashboard"),
     path('download_template/', views.download_template, name='download_template'),
     path('new_application/',views.add_application,name="new_application"),
+    path('integration/', views.integration, name='integration'),
+    path('integration/jobs/', views.integration_jobs, name='integration_jobs'),
+    path('integration/launch/<int:template_id>/', views.integration_launch, name='integration_launch'),
+    path('users/', views.users, name='users'),
+    path('users/toggle/<int:user_id>/', views.toggle_user, name='toggle_user'),
 ]
