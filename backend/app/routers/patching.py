@@ -130,7 +130,7 @@ def orchestrate_run(conn, template_id, host_ids, extra_vars, username, run_type=
 
     hostnames = []
     if host_ids:
-        placeholders = ",".join("%s" * len(host_ids))
+        placeholders = ",".join(["%s"] * len(host_ids))
         hostnames = [r["hostname"] for r in
                      conn.execute(f"SELECT hostname FROM hosts WHERE id IN ({placeholders})", host_ids).fetchall()]
 

@@ -148,7 +148,7 @@ def run_template(tpl_id: int, body: TemplateRun, user: dict = Depends(require_ad
         conn.close()
         raise HTTPException(status_code=400, detail="At least one host is required")
 
-    placeholders = ",".join("%s" * len(body.host_ids))
+    placeholders = ",".join(["%s"] * len(body.host_ids))
     hostnames = [h["hostname"] for h in
                  conn.execute(f"SELECT hostname FROM hosts WHERE id IN ({placeholders})", body.host_ids).fetchall()]
 
