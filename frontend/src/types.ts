@@ -115,6 +115,20 @@ export interface PolicyExclusion {
   host_id: number
 }
 
+export interface ExecutionOption {
+  id: number
+  name: string
+  provider: string
+  url: string
+  auth_mode: 'basic' | 'token'
+  username: string | null
+  password: string | null
+  token: string | null
+  is_active: number
+  created_at: string
+  updated_at: string
+}
+
 export interface AwxTemplate {
   id: number
   name: string

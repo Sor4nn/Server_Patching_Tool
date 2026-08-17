@@ -90,6 +90,17 @@ export const api = {
     request<{ success: boolean }>(`/patching/policies/${id}/exclusions?host_id=${hostId}`, { method: 'POST' }),
   removePolicyExclusion: (id: number, exclusionId: number) =>
     request<{ success: boolean }>(`/patching/policies/${id}/exclusions/${exclusionId}`, { method: 'DELETE' }),
+
+  listOptions: () => request<{ success: boolean; options: ExecutionOption[] }>('/patching/options'),
+  createOption: (body: Record<string, unknown>) =>
+    request<{ success: boolean; option: ExecutionOption }>('/patching/options', { method: 'POST', body: JSON.stringify(body) }),
+  updateOption: (id: number, body: Record<string, unknown>) =>
+    request<{ success: boolean; option: ExecutionOption }>(`/patching/options/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  deleteOption: (id: number) => request<{ success: boolean }>(`/patching/options/${id}`, { method: 'DELETE' }),
+  activateOption: (id: number) =>
+    request<{ success: boolean; option: ExecutionOption }>(`/patching/options/${id}/activate`, { method: 'POST' }),
+  testOption: (id: number) =>
+    request<{ success: boolean; version?: string; auth_mode?: string; error?: string }>(`/patching/options/${id}/test`, { method: 'POST' }),
 }
 
-import type { DashboardStats, Host, HostGroup, PatchRun, User, AwxTemplate, AwxJob, HostPackage, PackageAggregate, PatchPolicy } from './types'
+import type { DashboardStats, Host, HostGroup, PatchRun, User, AwxTemplate, AwxJob, HostPackage, PackageAggregate, PatchPolicy, ExecutionOption } from './types'

@@ -116,6 +116,20 @@ CREATE TABLE IF NOT EXISTS policy_exclusions (
     host_id INTEGER NOT NULL,
     UNIQUE(policy_id, host_id)
 );
+
+CREATE TABLE IF NOT EXISTS execution_options (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    provider TEXT NOT NULL DEFAULT 'awx',  -- awx | jenkins (future)
+    url TEXT NOT NULL,
+    auth_mode TEXT NOT NULL DEFAULT 'basic',  -- basic | token
+    username TEXT,
+    password TEXT,
+    token TEXT,
+    is_active INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
 """
 
 # Columns added to existing tables on upgrade (sqlite lacks ADD COLUMN IF NOT EXISTS)
@@ -156,6 +170,17 @@ def init_db():
             "INSERT INTO users (username, email, password_hash, is_admin, is_active, created_at) VALUES (?, ?, ?, 1, 1, ?)",
             (config.SEED_ADMIN_USER, "admin@gpta.local", hash_password(config.SEED_ADMIN_PASSWORD),
              datetime.now(timezone.utc).isoformat()),
+        )
+        conn.commit()
+
+    # Seed an execution option from env so existing installs keep working out of the box
+    if not conn.execute("SELECT COUNT(*) AS c FROM execution_options").fetchone()["c"]:
+        now = datetime.now(timezone.utc).isoformat()
+        conn.execute(
+            "INSERT INTO execution_options (name, provider, url, auth_mode, username, password, token, is_active, created_at, updated_at) "
+            "VALUES (?, 'awx', ?, ?, ?, ?, ?, 1, ?, ?)",
+            ("Default AWX", f"{config.AWX_PROTOCOL}://{config.AWX_HOST}:{config.AWX_PORT}",
+             config.AWX_AUTH_MODE, config.AWX_USERNAME, config.AWX_PASSWORD, config.AWX_TOKEN, now, now),
         )
         conn.commit()
     conn.close()

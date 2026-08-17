@@ -1,28 +1,57 @@
 import requests
 import urllib3
 
-from . import config
+from . import config, database
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
-def _request_kwargs():
-    """Return requests auth/headers for the configured AWX auth mode.
+def resolve_connection():
+    """Return the settings of the active execution option.
+
+    Preferred source is the enabled row in execution_options (set from the UI);
+    falls back to environment config if no option is saved yet.
+    """
+    try:
+        conn = database.get_connection()
+        row = conn.execute("SELECT * FROM execution_options WHERE is_active = 1 ORDER BY id LIMIT 1").fetchone()
+        conn.close()
+        if row:
+            return {
+                "id": row["id"], "name": row["name"], "provider": row["provider"],
+                "url": row["url"], "auth_mode": row["auth_mode"],
+                "username": row["username"], "password": row["password"], "token": row["token"],
+            }
+    except Exception:
+        pass
+    return {
+        "id": None, "name": "env", "provider": "awx",
+        "url": f"{config.AWX_PROTOCOL}://{config.AWX_HOST}:{config.AWX_PORT}",
+        "auth_mode": config.AWX_AUTH_MODE,
+        "username": config.AWX_USERNAME, "password": config.AWX_PASSWORD, "token": config.AWX_TOKEN,
+    }
+
+
+def _request_kwargs(connection):
+    """Return requests auth/headers for the given connection.
 
     AWX supports Basic auth (user:password) and OAuth2 tokens (Bearer).
     See https://oneuptime.com/blog/post/2026-02-21-how-to-use-awx-api-for-automation
     """
-    if config.AWX_AUTH_MODE.lower() == "token":
-        return {"headers": {"Authorization": f"Bearer {config.AWX_TOKEN}"}}
-    return {"auth": (config.AWX_USERNAME, config.AWX_PASSWORD)}
+    if (connection["auth_mode"] or "basic").lower() == "token":
+        return {"headers": {"Authorization": f"Bearer {connection['token']}"}}
+    return {"auth": (connection["username"], connection["password"])}
 
 
-def _get(path, timeout=15):
-    return requests.get(_awx_url(path), verify=False, timeout=timeout, **_request_kwargs())
+def _get(path, timeout=15, connection=None):
+    connection = connection or resolve_connection()
+    return requests.get(_awx_url(path, connection), verify=False, timeout=timeout, **_request_kwargs(connection))
 
 
-def _post(path, body=None, timeout=30):
-    return requests.post(_awx_url(path), json=body, verify=False, timeout=timeout, **_request_kwargs())
+def _post(path, body=None, timeout=30, connection=None):
+    connection = connection or resolve_connection()
+    return requests.post(_awx_url(path, connection), json=body, verify=False, timeout=timeout,
+                         **_request_kwargs(connection))
 
 
 LAUNCH_CREDS = {
@@ -31,8 +60,9 @@ LAUNCH_CREDS = {
 }
 
 
-def _awx_url(path: str) -> str:
-    return f"{config.AWX_PROTOCOL}://{config.AWX_HOST}:{config.AWX_PORT}{path}"
+def _awx_url(path: str, connection: dict | None = None) -> str:
+    connection = connection or resolve_connection()
+    return f"{connection['url'].rstrip('/')}{path}"
 
 
 def _credentials_for(template_name: str) -> list[int]:
@@ -44,15 +74,18 @@ def _credentials_for(template_name: str) -> list[int]:
     return [config.AWX_VAULT_ID]
 
 
-def get_awx_health():
+def get_awx_health(connection: dict | None = None):
+    connection = connection or resolve_connection()
     try:
-        response = _get("/api/v2/ping/")
+        response = _get("/api/v2/ping/", connection=connection)
         response.raise_for_status()
         data = response.json()
         return {"success": True, "version": data.get("version"), "instances": len(data.get("instances", [])),
-                "ha_capacity": data.get("ha_capacity"), "auth_mode": config.AWX_AUTH_MODE}
+                "ha_capacity": data.get("ha_capacity"), "auth_mode": connection["auth_mode"],
+                "connection_id": connection["id"], "connection_name": connection["name"]}
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        return {"success": False, "error": str(e), "auth_mode": connection["auth_mode"],
+                "connection_id": connection["id"], "connection_name": connection["name"]}
 
 
 def get_job_template_data(template_id: int):
