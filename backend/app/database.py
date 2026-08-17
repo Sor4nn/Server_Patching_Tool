@@ -236,14 +236,17 @@ def init_db():
             conn.execute("INSERT INTO host_groups (name) VALUES (%s)", (name,))
         conn.commit()
 
-    # Seed admin user
-    row = conn.execute("SELECT id FROM users WHERE username = %s", (config.SEED_ADMIN_USER,)).fetchone()
+    # Seed admin user (idempotent: create if missing, promote if exists but not admin)
+    row = conn.execute("SELECT id, is_admin FROM users WHERE username = %s", (config.SEED_ADMIN_USER,)).fetchone()
     if row is None:
         conn.execute(
             "INSERT INTO users (username, email, password_hash, is_admin, is_active, created_at) VALUES (%s, %s, %s, 1, 1, %s)",
             (config.SEED_ADMIN_USER, "admin@gpta.local", hash_password(config.SEED_ADMIN_PASSWORD),
              datetime.now(timezone.utc).isoformat()),
         )
+        conn.commit()
+    elif not row["is_admin"]:
+        conn.execute("UPDATE users SET is_admin = 1 WHERE id = %s", (row["id"],))
         conn.commit()
 
     # Seed an execution option from env so existing installs keep working out of the box
