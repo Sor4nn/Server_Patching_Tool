@@ -22,7 +22,6 @@ export default function TerminalModal({ hostId, hostLabel, onClose }: Props) {
   const [status, setStatus] = useState('')
   const termRef = useRef<HTMLDivElement>(null)
   const xtermRef = useRef<Terminal | null>(null)
-  const fitRef = useRef<FitAddon | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
   const protocolRef = useRef<Protocol>('ssh')
 
@@ -50,7 +49,6 @@ export default function TerminalModal({ hostId, hostLabel, onClose }: Props) {
     term.open(termRef.current)
     fit.fit()
     xtermRef.current = term
-    fitRef.current = fit
 
     const sendData = (data: string) => {
       const ws = wsRef.current

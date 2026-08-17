@@ -9,6 +9,7 @@ import fcntl
 import json
 import os
 import pty
+import signal
 import struct
 import subprocess
 import termios
@@ -43,6 +44,16 @@ def _read_all(fd: int) -> bytes:
             break
         chunks.append(chunk)
     return b"".join(chunks)
+
+
+def _write_all(fd: int, data: bytes):
+    """Write to a non-blocking fd, tolerating EAGAIN/partial writes."""
+    try:
+        os.write(fd, data)
+    except (BlockingIOError, InterruptedError):
+        pass
+    except OSError:
+        raise
 
 
 def _ssh_command(credential: dict | None, target: str, image: str) -> tuple[list[str], str | None, str]:
@@ -150,13 +161,13 @@ async def host_terminal(websocket: WebSocket, host_id: int):
             closed = True
             loop.create_task(_safe_close())
             return
-        if not data:
-            # Slave closed (container exited).
+        if data:
+            loop.create_task(_safe_send_bytes(data))
+        if proc.poll() is not None:
+            # Container exited: flush once then close.
             closed = True
             loop.create_task(_safe_close())
             return
-        if data:
-            loop.create_task(_safe_send_bytes(data))
 
     async def _safe_close():
         if not closed:
@@ -178,21 +189,26 @@ async def host_terminal(websocket: WebSocket, host_id: int):
                 break
             if "bytes" in data and data["bytes"]:
                 try:
-                    os.write(master, data["bytes"])
+                    _write_all(master, data["bytes"])
                 except OSError:
                     break
             elif "text" in data and data["text"]:
                 try:
                     parsed = json.loads(data["text"])
                 except ValueError:
-                    os.write(master, data["text"].encode())
+                    _write_all(master, data["text"].encode())
                     continue
                 if parsed.get("type") == "resize":
-                    _set_size(master, parsed.get("cols", 80), parsed.get("rows", 24))
+                    cols, rows = parsed.get("cols", 80), parsed.get("rows", 24)
+                    _set_size(master, cols, rows)
+                    try:
+                        proc.send_signal(signal.SIGWINCH)
+                    except OSError:
+                        pass
                 elif parsed.get("type") == "data":
-                    os.write(master, parsed.get("data", "").encode())
+                    _write_all(master, parsed.get("data", "").encode())
                 else:
-                    os.write(master, data["text"].encode())
+                    _write_all(master, data["text"].encode())
     finally:
         closed = True
         loop.remove_reader(master)
