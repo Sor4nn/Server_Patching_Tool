@@ -149,10 +149,37 @@ def orchestrate_run(conn, template_id, host_ids, extra_vars, username, run_type=
     provider = (option or {}).get("provider", "awx")
 
     if provider == "local":
+        repo_url = (option or {}).get("url") or ""
+        branch = (option or {}).get("branch") or "main"
+        playbook = extra_vars.pop("playbook", None)
+        credential = None
+        ee = None
+        template_name = None
+
+        if template_id:
+            tpl = conn.execute("SELECT * FROM templates WHERE id = %s", (template_id,)).fetchone()
+            if tpl:
+                template_name = tpl["name"]
+                repo_url = tpl["repo_url"] or repo_url
+                branch = tpl["branch"] or branch
+                playbook = tpl["playbook"] or playbook
+                if tpl.get("credential_id"):
+                    c = conn.execute("SELECT name, credential_type, username, password, private_key FROM credentials WHERE id = %s",
+                                     (tpl["credential_id"],)).fetchone()
+                    if c:
+                        credential = dict(c)
+                if tpl.get("execution_environment_id"):
+                    ee_row = conn.execute("SELECT name FROM execution_environments WHERE id = %s",
+                                          (tpl["execution_environment_id"],)).fetchone()
+                    if ee_row:
+                        ee = ee_row["name"]
+
         return run_local_playbook(
-            conn, run_id=run_id, repo_url=option.get("url") or "", branch=option.get("username") or "main",
-            playbook=extra_vars.pop("playbook", None), hostnames=hostnames, extra_vars=extra_vars,
+            conn=conn, run_id=run_id, repo_url=repo_url, branch=branch,
+            playbook=playbook, hostnames=hostnames, extra_vars=extra_vars,
             username=username, run_type=run_type,
+            template_id=template_id, template_name=template_name,
+            execution_environment=ee, credential=credential,
         )
     return _orchestrate_awx(conn, run_id, template_id, hostnames, extra_vars, username, run_type)
 
@@ -163,7 +190,7 @@ def _host_name(h) -> str:
 
 
 def run_local_playbook(*, conn, run_id, repo_url, branch, playbook, hostnames, extra_vars, username, run_type,
-                       execution_environment=None, credential=None) -> dict:
+                       template_id=None, template_name=None, execution_environment=None, credential=None) -> dict:
     """Run a playbook locally via ansible-runner and record the run in patch_runs.
 
     Shared by the local provider (patching) and job templates. `playbook` may be
@@ -188,8 +215,8 @@ def run_local_playbook(*, conn, run_id, repo_url, branch, playbook, hostnames, e
     status = "successful" if result.get("success") else "failed"
     cur = conn.execute(
         "INSERT INTO patch_runs (run_id, template_id, template_name, status, type, extra_vars, host_count, created_by, created_at, started_at, finished_at) "
-        "VALUES (%s, NULL, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
-        (run_id, playbook, status, run_type, json.dumps(extra_vars), len(hostnames), username,
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+        (run_id, template_id, template_name or playbook, status, run_type, json.dumps(extra_vars), len(hostnames), username,
          database.now_iso(), database.now_iso(), database.now_iso()),
     )
     conn.commit()

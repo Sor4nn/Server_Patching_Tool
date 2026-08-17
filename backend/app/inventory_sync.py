@@ -154,60 +154,141 @@ def _apply_hostvars(host_vars: dict, source) -> dict:
     return updates
 
 
-def reconcile(conn, source) -> dict:
-    """Sync the source's repo into hosts/host_groups. Returns a summary dict."""
-    _clone_or_pull(source)
-    repo_dir = _repo_dir(source)
-    files = _files(repo_dir, source["file_pattern"] or "**/*")
-    if not files:
-        return {"added_groups": 0, "added_hosts": 0, "updated_hosts": 0, "removed_hosts": 0, "files": 0}
+def _is_playbook(text: str) -> bool:
+    """Check if YAML text is an Ansible playbook (disambiguating from inventory)."""
+    try:
+        data = yaml.safe_load(text)
+    except yaml.YAMLError:
+        return False
+    if isinstance(data, list):
+        for item in data:
+            if isinstance(item, dict):
+                if any(k in item for k in ("tasks", "roles", "import_playbook", "include_tasks", "pre_tasks", "post_tasks", "handlers", "block")):
+                    return True
+                if "hosts" in item and not any(k in item for k in ("children", "vars")) and ("gather_facts" in item or "become" in item or "name" in item or "strategy" in item):
+                    return True
+    elif isinstance(data, dict):
+        if any(k in data for k in ("tasks", "roles", "import_playbook", "pre_tasks", "post_tasks")):
+            return True
+    return False
 
-    groups = {}
-    for f in files:
-        text = f.read_text(encoding="utf-8", errors="ignore")
-        parsed = _parse_yaml(text) if f.suffix.lower() in (".yml", ".yaml") else _parse_ini(text)
-        for gname, hosts in parsed.items():
-            if gname == "ungrouped" and "all" in groups:
-                continue
-            for hname, hvars in hosts.items():
-                groups.setdefault(gname, {})[hname] = hvars
 
-    seen_hostnames: set[str] = set()
-    added_groups = added_hosts = updated_hosts = 0
+def _discover_playbooks(repo_dir: Path, source: dict, conn) -> int:
+    """Discover playbooks in the cloned repo matching source['playbook_pattern'] and upsert into templates."""
+    pattern = source.get("playbook_pattern") or "ansible_scripts/*.yml"
+    files = _files(repo_dir, pattern)
+    seen_playbooks: set[str] = set()
+    discovered_count = 0
     now = database.now_iso()
 
-    for gname, hosts in groups.items():
-        row = conn.execute("SELECT id FROM host_groups WHERE name = %s", (gname.strip(),)).fetchone()
-        if row:
-            group_id = row["id"]
+    for f in files:
+        text = f.read_text(encoding="utf-8", errors="ignore")
+        if not _is_playbook(text):
+            continue
+
+        rel_path = f.relative_to(repo_dir).as_posix()
+        seen_playbooks.add(rel_path)
+        stem_name = f.stem
+
+        existing = conn.execute(
+            "SELECT id, name FROM templates WHERE inventory_source_id = %s AND playbook = %s",
+            (source["id"], rel_path),
+        ).fetchone()
+
+        if existing:
+            conn.execute(
+                "UPDATE templates SET repo_url = %s, branch = %s, updated_at = %s WHERE id = %s",
+                (source["repo_url"], source.get("branch") or DEFAULT_BRANCH, now, existing["id"]),
+            )
+            discovered_count += 1
         else:
-            cur = conn.execute("INSERT INTO host_groups (name, description) VALUES (%s, %s) RETURNING id",
-                               (gname.strip(), f"Synced from {source['name']}"))
-            group_id = cur.fetchone()["id"]
-            added_groups += 1
-        for hname, hvars in hosts.items():
-            seen_hostnames.add(hname)
-            hrow = conn.execute("SELECT id, hostname FROM hosts WHERE hostname = %s", (hname,)).fetchone()
-            updates = _apply_hostvars(hvars, source)
-            if hrow:
-                sets = ", ".join(f"{k} = %s" for k in updates) + (", " if updates else "")
-                conn.execute(f"UPDATE hosts SET {sets}group_id = %s, updated_at = %s WHERE id = %s",
-                             list(updates.values()) + [group_id, now, hrow["id"]])
-                updated_hosts += 1
+            name = stem_name
+            name_owner = conn.execute("SELECT id, inventory_source_id FROM templates WHERE name = %s", (name,)).fetchone()
+            if name_owner:
+                if name_owner["inventory_source_id"] == source["id"]:
+                    conn.execute(
+                        "UPDATE templates SET playbook = %s, repo_url = %s, branch = %s, updated_at = %s WHERE id = %s",
+                        (rel_path, source["repo_url"], source.get("branch") or DEFAULT_BRANCH, now, name_owner["id"]),
+                    )
+                    discovered_count += 1
+                    continue
+                else:
+                    name = f"{source['name']}_{stem_name}"
+
+            conn.execute(
+                "INSERT INTO templates (name, description, playbook, repo_url, branch, inventory_source_id, enabled, created_at, updated_at) "
+                "VALUES (%s, %s, %s, %s, %s, %s, 1, %s, %s)",
+                (name, f"Auto-discovered from {source['name']}", rel_path, source["repo_url"],
+                 source.get("branch") or DEFAULT_BRANCH, source["id"], now, now),
+            )
+            discovered_count += 1
+
+    if seen_playbooks:
+        conn.execute(
+            "DELETE FROM templates WHERE inventory_source_id = %s AND playbook <> ALL(%s)",
+            (source["id"], list(seen_playbooks)),
+        )
+    else:
+        conn.execute("DELETE FROM templates WHERE inventory_source_id = %s", (source["id"],))
+
+    return discovered_count
+
+
+def reconcile(conn, source) -> dict:
+    """Sync the source's repo into hosts/host_groups and auto-detect playbooks into templates."""
+    _clone_or_pull(source)
+    repo_dir = _repo_dir(source)
+    files = _files(repo_dir, source.get("file_pattern") or "**/*")
+
+    added_groups = added_hosts = updated_hosts = removed_hosts = 0
+    now = database.now_iso()
+    seen_hostnames: set[str] = set()
+
+    if files:
+        groups = {}
+        for f in files:
+            text = f.read_text(encoding="utf-8", errors="ignore")
+            parsed = _parse_yaml(text) if f.suffix.lower() in (".yml", ".yaml") else _parse_ini(text)
+            for gname, hosts in parsed.items():
+                if gname == "ungrouped" and "all" in groups:
+                    continue
+                for hname, hvars in hosts.items():
+                    groups.setdefault(gname, {})[hname] = hvars
+
+        for gname, hosts in groups.items():
+            row = conn.execute("SELECT id FROM host_groups WHERE name = %s", (gname.strip(),)).fetchone()
+            if row:
+                group_id = row["id"]
             else:
-                cols = ["hostname", "group_id", "created_at", "updated_at"] + list(updates.keys())
-                vals = [hname, group_id, now, now] + list(updates.values())
-                ph = ", ".join(["%s"] * len(cols))
-                cur = conn.execute(f"INSERT INTO hosts ({', '.join(cols)}) VALUES ({ph})", vals)
-                added_hosts += 1
+                cur = conn.execute("INSERT INTO host_groups (name, description) VALUES (%s, %s) RETURNING id",
+                                   (gname.strip(), f"Synced from {source['name']}"))
+                group_id = cur.fetchone()["id"]
+                added_groups += 1
+            for hname, hvars in hosts.items():
+                seen_hostnames.add(hname)
+                hrow = conn.execute("SELECT id, hostname FROM hosts WHERE hostname = %s", (hname,)).fetchone()
+                updates = _apply_hostvars(hvars, source)
+                if hrow:
+                    sets = ", ".join(f"{k} = %s" for k in updates) + (", " if updates else "")
+                    conn.execute(f"UPDATE hosts SET {sets}group_id = %s, updated_at = %s WHERE id = %s",
+                                 list(updates.values()) + [group_id, now, hrow["id"]])
+                    updated_hosts += 1
+                else:
+                    cols = ["hostname", "group_id", "created_at", "updated_at"] + list(updates.keys())
+                    vals = [hname, group_id, now, now] + list(updates.values())
+                    ph = ", ".join(["%s"] * len(cols))
+                    cur = conn.execute(f"INSERT INTO hosts ({', '.join(cols)}) VALUES ({ph})", vals)
+                    added_hosts += 1
 
-    removed_hosts = 0
-    if source["prune_missing"]:
-        removed_hosts = _prune_source_hosts(conn, source, seen_hostnames, groups)
+        if source.get("prune_missing"):
+            removed_hosts = _prune_source_hosts(conn, source, seen_hostnames, groups)
 
+    discovered_templates = _discover_playbooks(repo_dir, source, conn)
     conn.commit()
+
     return {"added_groups": added_groups, "added_hosts": added_hosts,
-            "updated_hosts": updated_hosts, "removed_hosts": removed_hosts, "files": len(files)}
+            "updated_hosts": updated_hosts, "removed_hosts": removed_hosts,
+            "discovered_templates": discovered_templates, "files": len(files)}
 
 
 def _prune_source_hosts(conn, source, seen: set[str], groups: dict) -> int:

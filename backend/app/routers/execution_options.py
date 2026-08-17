@@ -16,8 +16,9 @@ def _option_to_dict(row) -> dict:
 
 class OptionCreate(BaseModel):
     name: str
-    provider: str = "awx"  # awx | jenkins (future)
-    url: str
+    provider: str = "awx"  # awx | jenkins | local
+    url: Optional[str] = ""
+    branch: Optional[str] = "main"
     auth_mode: str = "basic"  # basic | token
     username: Optional[str] = None
     password: Optional[str] = None
@@ -28,6 +29,7 @@ class OptionUpdate(BaseModel):
     name: Optional[str] = None
     provider: Optional[str] = None
     url: Optional[str] = None
+    branch: Optional[str] = None
     auth_mode: Optional[str] = None
     username: Optional[str] = None
     password: Optional[str] = None
@@ -38,7 +40,6 @@ def _validate(body: OptionCreate | OptionUpdate):
     if body.provider is not None and body.provider not in ("awx", "jenkins", "local"):
         raise HTTPException(status_code=400, detail="provider must be 'awx', 'jenkins' or 'local'")
     if body.provider == "local":
-        # local provider: `url` is the playbook git repository
         return
     if body.url is not None and not body.url.startswith(("http://", "https://")):
         raise HTTPException(status_code=400, detail="url must start with http:// or https://")
@@ -48,8 +49,8 @@ def _validate(body: OptionCreate | OptionUpdate):
 
 def _row_to_connection(row) -> dict:
     return {"id": row["id"], "name": row["name"], "provider": row["provider"], "url": row["url"],
-            "auth_mode": row["auth_mode"], "username": row["username"], "password": row["password"],
-            "token": row["token"]}
+            "branch": row["branch"], "auth_mode": row["auth_mode"], "username": row["username"],
+            "password": row["password"], "token": row["token"]}
 
 
 @router.get("")
@@ -63,19 +64,20 @@ def list_options(_user: dict = Depends(current_user)):
 @router.post("")
 def create_option(body: OptionCreate, _user: dict = Depends(require_admin)):
     _validate(body)
-    if body.auth_mode == "basic" and (not body.username or not body.password):
-        raise HTTPException(status_code=400, detail="username and password required for basic auth")
-    if body.auth_mode == "token" and not body.token:
-        raise HTTPException(status_code=400, detail="token required for token auth")
+    if body.provider != "local":
+        if body.auth_mode == "basic" and (not body.username or not body.password):
+            raise HTTPException(status_code=400, detail="username and password required for basic auth")
+        if body.auth_mode == "token" and not body.token:
+            raise HTTPException(status_code=400, detail="token required for token auth")
     conn = database.get_connection()
     now = database.now_iso()
     was_active = conn.execute("SELECT COUNT(*) AS c FROM execution_options WHERE is_active = 1").fetchone()["c"] == 0
     try:
         cur = conn.execute(
-            "INSERT INTO execution_options (name, provider, url, auth_mode, username, password, token, is_active, created_at, updated_at) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
-            (body.name.strip(), body.provider, body.url.strip(), body.auth_mode, body.username, body.password,
-             body.token, int(was_active), now, now),
+            "INSERT INTO execution_options (name, provider, url, branch, auth_mode, username, password, token, is_active, created_at, updated_at) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+            (body.name.strip(), body.provider, (body.url or "").strip(), body.branch or "main", body.auth_mode,
+             body.username, body.password, body.token, int(was_active), now, now),
         )
     except database.IntegrityError:
         conn.close()
@@ -96,7 +98,7 @@ def update_option(option_id: int, body: OptionUpdate, _user: dict = Depends(requ
         conn.close()
         raise HTTPException(status_code=404, detail="Option not found")
     sets, params = [], []
-    for field in ("name", "provider", "url", "auth_mode", "username", "password", "token"):
+    for field in ("name", "provider", "url", "branch", "auth_mode", "username", "password", "token"):
         val = getattr(body, field)
         if val is not None:
             sets.append(f"{field} = %s")
@@ -116,7 +118,6 @@ def update_option(option_id: int, body: OptionUpdate, _user: dict = Depends(requ
 
 @router.delete("/{option_id}")
 def delete_option(option_id: int, _user: dict = Depends(require_admin)):
-    conn = database.get_connection()
     conn = database.get_connection()
     cur = conn.execute("DELETE FROM execution_options WHERE id = %s", (option_id,))
     conn.commit()
@@ -148,4 +149,6 @@ def test_option(option_id: int, _user: dict = Depends(current_user)):
     conn.close()
     if not row:
         raise HTTPException(status_code=404, detail="Option not found")
+    if row["provider"] == "local":
+        return {"success": True, "reachable": True, "provider": "local"}
     return awx.get_awx_health(_row_to_connection(row))

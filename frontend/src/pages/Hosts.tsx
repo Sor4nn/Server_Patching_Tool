@@ -65,7 +65,7 @@ export default function Hosts() {
 
   // Host metrics
   const totalCount = hosts.length
-  const connectedCount = hosts.filter((h) => h.state !== 'Blocked').length
+  const connectedCount = hosts.filter((h) => !!h.last_seen).length
   const offlineCount = totalCount - connectedCount
 
   return (

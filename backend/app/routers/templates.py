@@ -191,6 +191,8 @@ def run_template(tpl_id: int, body: TemplateRun, user: dict = Depends(require_ad
         extra_vars=extra_vars,
         username=user["username"],
         run_type=tpl["name"],
+        template_id=tpl_id,
+        template_name=tpl["name"],
         execution_environment=ee,
         credential=credential,
     )

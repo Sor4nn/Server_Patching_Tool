@@ -83,7 +83,7 @@ export default function HostGroups() {
         <div className="table-wrap">
           <table>
             <thead>
-              <tr><th>Name</th><th>Repository</th><th>Branch</th><th>Auth</th><th>Hosts</th><th>Last Sync</th><th>Status</th>{isAdmin && <th />}</tr>
+              <tr><th>Name</th><th>Repository</th><th>Branch</th><th>Auth</th><th>Hosts</th><th>Playbooks</th><th>Last Sync</th><th>Status</th>{isAdmin && <th />}</tr>
             </thead>
             <tbody>
               {sources.map((s) => (
@@ -96,6 +96,7 @@ export default function HostGroups() {
                   <td className="mono">{s.branch}</td>
                   <td>{s.auth_type}</td>
                   <td>{s.host_count ?? 0}</td>
+                  <td>{s.template_count ?? 0}</td>
                   <td className="muted">{s.last_sync_at ? new Date(s.last_sync_at).toLocaleString() : '-'}</td>
                   <td>
                     {s.last_sync_status === 'success' && <span className="badge badge-green">success</span>}
@@ -122,7 +123,7 @@ export default function HostGroups() {
               ))}
               {sources.length === 0 && (
                 <tr>
-                  <td colSpan={isAdmin ? 8 : 7} className="muted">
+                  <td colSpan={isAdmin ? 9 : 8} className="muted">
                     No repositories yet — add your first git repository (AWX-inventory style) and its hosts will appear here.
                   </td>
                 </tr>

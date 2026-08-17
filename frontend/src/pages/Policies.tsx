@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { api } from '../api'
 import { useAuth } from '../App'
-import type { AwxTemplate, Host, HostGroup, PatchPolicy } from '../types'
+import type { Host, HostGroup, JobTemplate, PatchPolicy } from '../types'
 import { IconPlus } from '../components/Icons'
 
 type DelayType = PatchPolicy['patch_delay_type']
@@ -21,7 +21,7 @@ export default function Policies() {
   const [policies, setPolicies] = useState<PatchPolicy[]>([])
   const [hosts, setHosts] = useState<Host[]>([])
   const [groups, setGroups] = useState<HostGroup[]>([])
-  const [templates, setTemplates] = useState<AwxTemplate[]>([])
+  const [templates, setTemplates] = useState<JobTemplate[]>([])
   const [message, setMessage] = useState('')
   const [editing, setEditing] = useState<PatchPolicy | null>(null)
   const [showCreate, setShowCreate] = useState(false)
@@ -31,12 +31,12 @@ export default function Policies() {
       api.listPolicies().catch(() => ({ success: false, policies: [] })),
       api.listHosts().catch(() => ({ success: false, hosts: [] })),
       api.listGroups().catch(() => ({ success: false, groups: [] })),
-      api.awxTemplates().catch(() => ({ success: false, templates: [] })),
+      api.listTemplates().catch(() => ({ success: false, templates: [] })),
     ])
     setPolicies(p.policies || [])
     setHosts(h.hosts || [])
     setGroups(g.groups || [])
-    setTemplates((t as { templates?: AwxTemplate[] }).templates || [])
+    setTemplates((t as { templates?: JobTemplate[] }).templates || [])
   }, [])
 
   useEffect(() => {
@@ -142,7 +142,7 @@ function PolicyModal({ policy, hosts, groups, templates, onClose, onDone }: {
   policy: PatchPolicy | null
   hosts: Host[]
   groups: HostGroup[]
-  templates: AwxTemplate[]
+  templates: JobTemplate[]
   onClose: () => void
   onDone: (msg: string) => void
 }) {

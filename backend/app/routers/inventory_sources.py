@@ -26,6 +26,7 @@ class SourceCreate(BaseModel):
     password: Optional[str] = None
     token: Optional[str] = None
     file_pattern: str = "**/*"
+    playbook_pattern: str = "ansible_scripts/*.yml"
     prune_missing: bool = False
     enabled: bool = True
 
@@ -39,6 +40,7 @@ class SourceUpdate(BaseModel):
     password: Optional[str] = None
     token: Optional[str] = None
     file_pattern: Optional[str] = None
+    playbook_pattern: Optional[str] = None
     prune_missing: Optional[bool] = None
     enabled: Optional[bool] = None
 
@@ -62,7 +64,10 @@ def list_sources(_user: dict = Depends(current_user)):
         host_count = conn.execute(
             "SELECT COUNT(*) AS c FROM hosts h JOIN host_groups g ON g.id = h.group_id "
             "WHERE g.description LIKE %s", (f"Synced from {d['name']}%",)).fetchone()["c"]
+        template_count = conn.execute(
+            "SELECT COUNT(*) AS c FROM templates WHERE inventory_source_id = %s", (d["id"],)).fetchone()["c"]
         d["host_count"] = host_count
+        d["template_count"] = template_count
         out.append(d)
     conn.close()
     return {"success": True, "sources": out}
@@ -86,11 +91,11 @@ def create_source(body: SourceCreate, _user: dict = Depends(require_admin)):
     try:
         cur = conn.execute(
             "INSERT INTO inventory_sources (name, repo_url, branch, auth_type, username, password, token, "
-            "file_pattern, prune_missing, enabled, created_at, updated_at) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+            "file_pattern, playbook_pattern, prune_missing, enabled, created_at, updated_at) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
             (body.name.strip(), body.repo_url.strip(), body.branch or "main", body.auth_type,
              body.username, body.password, body.token,
-             body.file_pattern, int(body.prune_missing), int(body.enabled), now, now),
+             body.file_pattern, body.playbook_pattern, int(body.prune_missing), int(body.enabled), now, now),
         )
     except database.IntegrityError:
         conn.close()
@@ -111,7 +116,7 @@ def update_source(source_id: int, body: SourceUpdate, _user: dict = Depends(requ
         conn.close()
         raise HTTPException(status_code=404, detail="Source not found")
     sets, params = [], []
-    for field in ("name", "repo_url", "branch", "auth_type", "username", "password", "token", "file_pattern"):
+    for field in ("name", "repo_url", "branch", "auth_type", "username", "password", "token", "file_pattern", "playbook_pattern"):
         val = getattr(body, field)
         if val is not None:
             sets.append(f"{field} = %s")

@@ -54,6 +54,7 @@ export interface JobTemplate {
   playbook: string
   repo_url: string
   branch: string
+  inventory_source_id?: number | null
   credential_id: number | null
   execution_environment_id: number | null
   enabled: number
@@ -151,6 +152,7 @@ export interface ExecutionOption {
   name: string
   provider: string
   url: string
+  branch?: string | null
   auth_mode: 'basic' | 'token'
   username: string | null
   password: string | null
@@ -264,6 +266,7 @@ export interface InventorySource {
   password: string | null
   token: string | null
   file_pattern: string
+  playbook_pattern: string
   prune_missing: number
   enabled: number
   last_sync_at: string | null
@@ -272,4 +275,5 @@ export interface InventorySource {
   created_at: string
   updated_at: string
   host_count?: number
+  template_count?: number
 }

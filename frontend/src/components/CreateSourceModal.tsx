@@ -11,6 +11,7 @@ export default function CreateSourceModal({ onClose, onCreated }: { onClose: () 
     password: '',
     token: '',
     file_pattern: '**/*',
+    playbook_pattern: 'ansible_scripts/*.yml',
     prune_missing: false,
   })
   const [error, setError] = useState('')
@@ -37,7 +38,7 @@ export default function CreateSourceModal({ onClose, onCreated }: { onClose: () 
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <h3 className="page-title" style={{ marginBottom: 12 }}>New Repository</h3>
         <p className="page-sub" style={{ marginBottom: 10 }}>
-          Point at a git repository holding hosts/groups (INI or YAML files), AWX-inventory style. On sync the hosts are imported and kept in sync automatically.
+          Point at a git repository holding hosts/groups (INI or YAML files), AWX-inventory style. On sync the hosts and playbooks are imported and kept in sync automatically.
         </p>
         {error && <div className="login-error">{error}</div>}
         <label className="form-label">Name</label>
@@ -67,8 +68,10 @@ export default function CreateSourceModal({ onClose, onCreated }: { onClose: () 
             <input className="form-input" type="password" value={form.password} onChange={(e) => set('password', e.target.value)} />
           </>
         )}
-        <label className="form-label">File pattern (e.g. **/*, inventories/*)</label>
+        <label className="form-label">Inventory file pattern (e.g. **/*, inventories/*)</label>
         <input className="form-input" value={form.file_pattern} onChange={(e) => set('file_pattern', e.target.value)} />
+        <label className="form-label">Playbook pattern (e.g. ansible_scripts/*.yml, playbooks/*.yml)</label>
+        <input className="form-input" value={form.playbook_pattern} onChange={(e) => set('playbook_pattern', e.target.value)} />
         <label className="checkbox-row">
           <input type="checkbox" checked={form.prune_missing} onChange={(e) => set('prune_missing', e.target.checked)} />
           Prune hosts no longer present in the repository

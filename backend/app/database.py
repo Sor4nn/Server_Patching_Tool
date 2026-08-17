@@ -135,6 +135,7 @@ CREATE TABLE IF NOT EXISTS execution_options (
     name TEXT NOT NULL UNIQUE,
     provider TEXT NOT NULL DEFAULT 'awx',  -- awx | jenkins | local
     url TEXT NOT NULL,
+    branch TEXT,
     auth_mode TEXT NOT NULL DEFAULT 'basic',  -- basic | token
     username TEXT,
     password TEXT,
@@ -173,6 +174,7 @@ CREATE TABLE IF NOT EXISTS inventory_sources (
     password TEXT,
     token TEXT,
     file_pattern TEXT NOT NULL DEFAULT '**/*',  -- git refs processed (ini/yml/yaml hosts)
+    playbook_pattern TEXT NOT NULL DEFAULT 'ansible_scripts/*.yml',
     prune_missing INTEGER NOT NULL DEFAULT 0,   -- delete hosts absent from the repo
     enabled INTEGER NOT NULL DEFAULT 1,
     last_sync_at TEXT,
@@ -201,6 +203,7 @@ CREATE TABLE IF NOT EXISTS templates (
     playbook TEXT NOT NULL,       -- path to the playbook inside the repo
     repo_url TEXT NOT NULL,       -- git repo holding the playbook
     branch TEXT NOT NULL DEFAULT 'main',
+    inventory_source_id INTEGER REFERENCES inventory_sources(id) ON DELETE CASCADE,
     credential_id INTEGER REFERENCES credentials(id) ON DELETE SET NULL,
     execution_environment_id INTEGER REFERENCES execution_environments(id) ON DELETE SET NULL,
     enabled INTEGER NOT NULL DEFAULT 1,
@@ -220,6 +223,11 @@ def _execute_schema(conn):
 def init_db():
     conn = get_connection()
     _execute_schema(conn)
+
+    # Migrations for existing databases
+    conn.execute("ALTER TABLE execution_options ADD COLUMN IF NOT EXISTS branch TEXT")
+    conn.execute("ALTER TABLE inventory_sources ADD COLUMN IF NOT EXISTS playbook_pattern TEXT NOT NULL DEFAULT 'ansible_scripts/*.yml'")
+    conn.execute("ALTER TABLE templates ADD COLUMN IF NOT EXISTS inventory_source_id INTEGER REFERENCES inventory_sources(id) ON DELETE CASCADE")
     conn.commit()
 
     # Seed host groups
@@ -248,6 +256,19 @@ def init_db():
              config.AWX_AUTH_MODE, config.AWX_USERNAME, config.AWX_PASSWORD, config.AWX_TOKEN, now, now),
         )
         conn.commit()
+
+    # Seed Local Runner option if not present
+    local_opt = conn.execute("SELECT id FROM execution_options WHERE provider = 'local'").fetchone()
+    if local_opt is None:
+        now = datetime.now(timezone.utc).isoformat()
+        has_active = conn.execute("SELECT id FROM execution_options WHERE is_active = 1").fetchone() is not None
+        conn.execute(
+            "INSERT INTO execution_options (name, provider, url, branch, auth_mode, is_active, created_at, updated_at) "
+            "VALUES (%s, 'local', '', 'main', 'basic', %s, %s, %s)",
+            ("Local Runner", 0 if has_active else 1, now, now),
+        )
+        conn.commit()
+
     conn.close()
 
 

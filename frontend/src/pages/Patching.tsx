@@ -2,7 +2,7 @@ import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../App'
-import type { AwxTemplate, ButtonBinding, Host, PatchPolicy, PatchRun, PatchTreeNode } from '../types'
+import type { ButtonBinding, Host, JobTemplate, PatchPolicy, PatchRun, PatchTreeNode } from '../types'
 import { DonutChart, type DonutSegment } from '../components/DonutChart'
 import {
   IconList,
@@ -44,7 +44,7 @@ export default function Patching() {
   const [activeTab, setActiveTab] = useState<'overview' | 'runs' | 'policies' | 'tree'>('overview')
   const [tree, setTree] = useState<PatchTreeNode[]>([])
   const [buttons, setButtons] = useState<ButtonBinding[]>([])
-  const [templates, setTemplates] = useState<AwxTemplate[]>([])
+  const [templates, setTemplates] = useState<JobTemplate[]>([])
   const [runs, setRuns] = useState<PatchRun[]>([])
   const [policies, setPolicies] = useState<PatchPolicy[]>([])
   const [hosts, setHosts] = useState<Host[]>([])
@@ -58,14 +58,14 @@ export default function Patching() {
     const [t, b, tmpl, r, p, h] = await Promise.all([
       api.patchTree().catch(() => ({ success: false, tree: [] })),
       api.listButtons().catch(() => ({ success: false, buttons: [] })),
-      api.awxTemplates().catch(() => ({ success: false, templates: [] })),
+      api.listTemplates().catch(() => ({ success: false, templates: [] })),
       api.listRuns().catch(() => ({ success: false, runs: [] })),
       api.listPolicies().catch(() => ({ success: false, policies: [] })),
       api.listHosts().catch(() => ({ success: false, hosts: [] })),
     ])
     setTree(t.tree || [])
     setButtons(b.buttons || [])
-    setTemplates((tmpl as { templates?: AwxTemplate[] }).templates || [])
+    setTemplates((tmpl as { templates?: JobTemplate[] }).templates || [])
     setRuns(r.runs || [])
     setPolicies(p.policies || [])
     setHosts(h.hosts || [])
@@ -685,7 +685,7 @@ export default function Patching() {
             <div className="card">
               <h2 className="card-title">Customize Action Buttons</h2>
               <p className="muted" style={{ marginTop: 4, marginBottom: 16 }}>
-                Bind detected AWX job templates to the Apply and Snapshot action buttons.
+                Bind templates to the Apply and Snapshot action buttons.
               </p>
               {DEFAULT_BUTTONS.map((key) => {
                 const binding = bindingFor.get(key)
@@ -706,7 +706,7 @@ export default function Patching() {
                   </div>
                 )
               })}
-              {templates.length === 0 && <p className="muted">AWX unreachable — no job templates detected.</p>}
+              {templates.length === 0 && <p className="muted">No templates found — sync a repo or create one.</p>}
             </div>
           )}
         </>
