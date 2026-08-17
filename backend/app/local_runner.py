@@ -72,9 +72,28 @@ def _resolve_image(execution_environment_name: str | None = None) -> str:
     return os.getenv("EXECUTION_ENVIRONMENT_IMAGE", DEFAULT_IMAGE)
 
 
+def _connection_vars(credential: dict | None) -> tuple[list[str], str | None]:
+    """Inventory connection vars + ssh key content from a credential.
+
+    Returns (host_var_tokens, ssh_key). The ssh key is written to the runner's
+    env/ssh_key so ansible-runner adds it to the ssh-agent (documented layout).
+    Password auth needs sshpass in the execution environment image.
+    """
+    if not credential:
+        return [], None
+    tokens = []
+    if credential.get("username"):
+        tokens.append(f"ansible_user={credential['username']}")
+    if credential.get("credential_type") == "ssh_password" and credential.get("password"):
+        tokens.append(f"ansible_ssh_pass={credential['password']}")
+    ssh_key = credential.get("private_key") if credential.get("credential_type") == "ssh_key" else None
+    return tokens, ssh_key
+
+
 def run_playbook(*, run_id: str, repo_url: str, branch: str, playbook: str,
                  hostnames: list[str], extra_vars: dict,
-                 execution_environment: str | None = None) -> dict:
+                 execution_environment: str | None = None,
+                 credential: dict | None = None) -> dict:
     """Execute a playbook via ansible-runner in a Docker execution environment.
 
     Returns dict(result): success, exit_code, output, artifacts_dir.
@@ -91,12 +110,20 @@ def run_playbook(*, run_id: str, repo_url: str, branch: str, playbook: str,
         return {"success": False, "error": f"playbook repo clone failed: {e}",
                 "exit_code": 1, "output": (e.stderr or b"").decode(errors="ignore")}
 
-    # Inventory: one host per line (small, matches the CSV flow).
+    # Inventory: one host per line, with SSH connection vars from the credential.
+    conn_tokens, ssh_key = _connection_vars(credential)
+    host_lines = [f"{h} {' '.join(conn_tokens)}" if conn_tokens else h for h in hostnames]
     (run_dir / "inventory" / "hosts").write_text(
-        "\n".join(hostnames) if hostnames else "localhost\n", encoding="utf-8")
+        "\n".join(host_lines) if host_lines else "localhost\n", encoding="utf-8")
+
+    if ssh_key:
+        key_file = run_dir / "env" / "ssh_key"
+        key_file.write_text(ssh_key if ssh_key.endswith("\n") else ssh_key + "\n", encoding="utf-8")
+        key_file.chmod(0o600)
 
     extra = dict(extra_vars or {})
     extra.setdefault("run_id", run_id)
+    extra.setdefault("server_endpoints_app", config.ENDPOINTS_BASE_URL)
     (run_dir / "env" / "extravars").write_text(json.dumps(extra), encoding="utf-8")
     (run_dir / "env" / "envvars").write_text(
         "ANSIBLE_NOCOLOR=True\nANSIBLE_FORCE_COLOR=False\n", encoding="utf-8")

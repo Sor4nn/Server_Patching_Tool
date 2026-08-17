@@ -64,7 +64,7 @@
       environment:
         no_proxy: localhost,127.0.0.1
       uri:
-        url: "http://<ServerEndpoints_APP>/updatepackages"
+        url: "{{ server_endpoints_app | default('http://localhost:61008') }}/updatepackages"
         method: POST
         body: {
                 "hostname": "{{ inventory_hostname }}",

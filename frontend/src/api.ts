@@ -122,6 +122,25 @@ export const api = {
   syncSource: (id: number) =>
     request<{ success: boolean; summary?: { added_groups: number; added_hosts: number; updated_hosts: number; removed_hosts: number; files: number }; error?: string }>(`/inventory-sources/${id}/sync`, { method: 'POST' }),
 
+  listCredentials: () => request<{ success: boolean; credentials: Credential[] }>('/credentials'),
+  createCredential: (body: Record<string, unknown>) =>
+    request<{ success: boolean; credential: Credential }>('/credentials', { method: 'POST', body: JSON.stringify(body) }),
+  updateCredential: (id: number, body: Record<string, unknown>) =>
+    request<{ success: boolean; credential: Credential }>(`/credentials/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  deleteCredential: (id: number) => request<{ success: boolean }>(`/credentials/${id}`, { method: 'DELETE' }),
+
+  listTemplates: () => request<{ success: boolean; templates: JobTemplate[] }>('/templates'),
+  createTemplate: (body: Record<string, unknown>) =>
+    request<{ success: boolean; template: JobTemplate }>('/templates', { method: 'POST', body: JSON.stringify(body) }),
+  updateTemplate: (id: number, body: Record<string, unknown>) =>
+    request<{ success: boolean; template: JobTemplate }>(`/templates/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  deleteTemplate: (id: number) => request<{ success: boolean }>(`/templates/${id}`, { method: 'DELETE' }),
+  runTemplate: (id: number, body: { host_ids: number[]; extra_vars?: string }) =>
+    request<{ success: boolean; run: PatchRun; local?: { exit_code?: number; output?: string; image?: string }; error?: string }>(`/templates/${id}/run`, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
+
   listEnvironments: () => request<{ success: boolean; environments: ExecutionEnvironment[] }>('/execution-environment'),
   createEnvironment: (body: Record<string, unknown>) =>
     request<{ success: boolean; environment: ExecutionEnvironment }>('/execution-environment', { method: 'POST', body: JSON.stringify(body) }),
@@ -130,4 +149,4 @@ export const api = {
   deleteEnvironment: (id: number) => request<{ success: boolean }>(`/execution-environment/${id}`, { method: 'DELETE' }),
 }
 
-import type { DashboardResponse, Host, HostGroup, PatchRun, User, AwxTemplate, AwxJob, HostPackage, PackageAggregate, PatchPolicy, ExecutionOption, PatchTreeNode, ButtonBinding, InventorySource, ExecutionEnvironment } from './types'
+import type { DashboardResponse, Host, HostGroup, PatchRun, User, AwxTemplate, AwxJob, HostPackage, PackageAggregate, PatchPolicy, ExecutionOption, PatchTreeNode, ButtonBinding, InventorySource, ExecutionEnvironment, Credential, JobTemplate } from './types'

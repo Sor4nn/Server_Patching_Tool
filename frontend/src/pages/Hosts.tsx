@@ -196,8 +196,8 @@ export default function Hosts() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((h, idx) => {
-                const isFirst = idx === 0
+              {filtered.map((h) => {
+                const reported = !!h.last_seen
                 return (
                   <tr key={h.id}>
                     <td style={{ textAlign: 'center' }}>
@@ -223,26 +223,26 @@ export default function Hosts() {
                         <span>{h.os_make || 'Red Hat Enterprise Linux'}</span>
                       </span>
                     </td>
-                    <td className="mono muted">{isFirst ? '2.1.3' : 'N/A'}</td>
+                    <td className="mono muted">-</td>
                     <td>
                       <span className="flex muted" style={{ fontSize: 11 }}>
                         No <span style={{ width: 14, height: 8, background: '#334155', borderRadius: 4, display: 'inline-block', marginLeft: 4 }} />
                       </span>
                     </td>
                     <td>
-                      {isFirst ? (
+                      {reported ? (
                         <span className="badge badge-green flex" style={{ gap: 4 }}>
                           <IconWifi size={11} /> WS
                         </span>
                       ) : (
-                        <span className="badge badge-red flex" style={{ gap: 4 }}>
-                          <IconWifi size={11} /> WS offline
+                        <span className="badge badge-gray flex" style={{ gap: 4 }}>
+                          <IconWifi size={11} /> Unknown
                         </span>
                       )}
                     </td>
-                    <td className="muted">-</td>
+                    <td className="mono muted">-</td>
                     <td>
-                      {isFirst ? (
+                      {reported ? (
                         <span className="badge badge-green">Reporting</span>
                       ) : (
                         <span className="badge badge-gray">Awaiting report</span>
@@ -251,10 +251,10 @@ export default function Hosts() {
                     <td>
                       <span className="badge badge-green">✓ No</span>
                     </td>
-                    <td className="muted">{isFirst ? '47 minutes' : 'N/A'}</td>
-                    <td style={{ color: '#60a5fa', fontWeight: 600 }}>0</td>
-                    <td style={{ color: '#f87171', fontWeight: 600 }}>0</td>
-                    <td className="muted">{isFirst ? '46 min ago' : '3 hours ago'}</td>
+                    <td className="mono muted">{h.uptime || '-'}</td>
+                    <td style={{ color: '#f59e0b', fontWeight: 600 }}>{h.outdated_count ?? 0}</td>
+                    <td style={{ color: '#f87171', fontWeight: 600 }}>{h.security_count ?? 0}</td>
+                    <td className="muted">{h.last_seen ? new Date(h.last_seen).toLocaleString() : '-'}</td>
                     <td>
                       <div className="flex" style={{ gap: 8 }}>
                         <Link to={`/hosts/${h.id}`} style={{ color: '#60a5fa', textDecoration: 'none', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 3 }}>

@@ -181,6 +181,32 @@ CREATE TABLE IF NOT EXISTS inventory_sources (
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS credentials (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    credential_type TEXT NOT NULL,  -- ssh_key | ssh_password
+    username TEXT,
+    password TEXT,
+    private_key TEXT,
+    description TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS templates (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    description TEXT,
+    playbook TEXT NOT NULL,       -- path to the playbook inside the repo
+    repo_url TEXT NOT NULL,       -- git repo holding the playbook
+    branch TEXT NOT NULL DEFAULT 'main',
+    credential_id INTEGER REFERENCES credentials(id) ON DELETE SET NULL,
+    execution_environment_id INTEGER REFERENCES execution_environments(id) ON DELETE SET NULL,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
 """
 
 

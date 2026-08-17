@@ -42,18 +42,22 @@ class HostUpdate(BaseModel):
 @router.get("")
 def list_hosts(group_id: Optional[int] = None, search: Optional[str] = None, _user: dict = Depends(current_user)):
     conn = database.get_connection()
-    query = "SELECT * FROM hosts"
+    query = ("SELECT h.*,"
+             " (SELECT COUNT(*) FROM host_packages hp WHERE hp.host_id = h.id AND hp.needs_update = 1) AS outdated_count,"
+             " (SELECT COUNT(*) FROM host_packages hp WHERE hp.host_id = h.id AND hp.needs_update = 1"
+             "   AND hp.is_security_update = 1) AS security_count"
+             " FROM hosts h")
     params = []
     where = []
     if group_id:
-        where.append("group_id = %s")
+        where.append("h.group_id = %s")
         params.append(group_id)
     if search:
-        where.append("(hostname LIKE %s OR ip_address LIKE %s OR friendly_name LIKE %s)")
+        where.append("(h.hostname LIKE %s OR h.ip_address LIKE %s OR h.friendly_name LIKE %s)")
         params += [f"%{search}%"] * 3
     if where:
         query += " WHERE " + " AND ".join(where)
-    query += " ORDER BY hostname"
+    query += " ORDER BY h.hostname"
     rows = conn.execute(query, params).fetchall()
     conn.close()
     return {"success": True, "hosts": [_host_row_to_dict(r) for r in rows]}

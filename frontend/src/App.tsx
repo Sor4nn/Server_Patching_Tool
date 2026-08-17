@@ -36,6 +36,8 @@ import Compliance from './pages/Compliance'
 import Reporting from './pages/Reporting'
 import Docker from './pages/Docker'
 import Automation from './pages/Automation'
+import Credentials from './pages/Credentials'
+import Templates from './pages/Templates'
 import Login from './pages/Login'
 
 interface AuthCtx {
@@ -184,6 +186,12 @@ function Layout() {
                   <NavLink to="/automation-options" className="nav-subitem">
                     Policies
                   </NavLink>
+                  <NavLink to="/templates" className="nav-subitem">
+                    Templates
+                  </NavLink>
+                  <NavLink to="/credentials" className="nav-subitem">
+                    Credentials
+                  </NavLink>
                 </div>
               )}
             </div>
@@ -275,6 +283,8 @@ function Layout() {
             <Route path="/host-groups" element={<HostGroups />} />
             <Route path="/inventory-sources" element={<Navigate to="/host-groups" replace />} />
             <Route path="/execution-environments" element={<ExecutionEnvironments />} />
+            <Route path="/templates" element={<Templates />} />
+            <Route path="/credentials" element={<Credentials />} />
             <Route path="/patching" element={<Patching />} />
             <Route path="/integration" element={<Integration />} />
             <Route path="/packages" element={<Packages />} />

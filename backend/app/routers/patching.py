@@ -149,15 +149,24 @@ def orchestrate_run(conn, template_id, host_ids, extra_vars, username, run_type=
     provider = (option or {}).get("provider", "awx")
 
     if provider == "local":
-        return _orchestrate_local(conn, run_id, option.get("url") or "", option.get("username") or "main",
-                                  hostnames, extra_vars, username, run_type)
+        return run_local_playbook(
+            conn, run_id=run_id, repo_url=option.get("url") or "", branch=option.get("username") or "main",
+            playbook=extra_vars.pop("playbook", None), hostnames=hostnames, extra_vars=extra_vars,
+            username=username, run_type=run_type,
+        )
     return _orchestrate_awx(conn, run_id, template_id, hostnames, extra_vars, username, run_type)
 
 
-def _orchestrate_local(conn, run_id, repo_url, branch, hostnames, extra_vars, username, run_type):
-    """Run the playbook in a Docker execution environment (ansible-runner)."""
+def run_local_playbook(*, conn, run_id, repo_url, branch, playbook, hostnames, extra_vars, username, run_type,
+                       execution_environment=None, credential=None) -> dict:
+    """Run a playbook locally via ansible-runner and record the run in patch_runs.
+
+    Shared by the local provider (patching) and job templates. `playbook` may be
+    None to fall back to the run-type default.
+    """
+    extra_vars = dict(extra_vars or {})
     extra_vars["host_group"] = ",".join(hostnames) if hostnames else "localhost"
-    playbook = (extra_vars.pop("playbook", None)
+    playbook = (playbook or extra_vars.pop("playbook", None)
                 or local_runner.PLAYBOOK_BY_RUN_TYPE.get(run_type, "onepatch_execution.yml"))
 
     result = local_runner.run_playbook(
@@ -167,7 +176,8 @@ def _orchestrate_local(conn, run_id, repo_url, branch, hostnames, extra_vars, us
         playbook=playbook,
         hostnames=hostnames,
         extra_vars=extra_vars,
-        execution_environment=extra_vars.pop("execution_environment", None),
+        execution_environment=execution_environment or extra_vars.pop("execution_environment", None),
+        credential=credential,
     )
 
     status = "successful" if result.get("success") else "failed"
@@ -182,7 +192,7 @@ def _orchestrate_local(conn, run_id, repo_url, branch, hostnames, extra_vars, us
     run = conn.execute("SELECT * FROM patch_runs WHERE id = %s", (row_id,)).fetchone()
     if not result.get("success"):
         return {"success": False, "run": _run_to_dict(run), "error": result.get("error"),
-                "local": {"exit_code": result.get("exit_code")}}
+                "local": {"exit_code": result.get("exit_code"), "output": result.get("output")}}
     return {"success": True, "run": _run_to_dict(run), "local": result}
 
 

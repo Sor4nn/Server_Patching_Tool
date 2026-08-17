@@ -30,6 +30,37 @@ export interface Host {
   group: { id: number; name: string } | null
   created_at: string
   updated_at: string
+  last_seen: string | null
+  outdated_count?: number
+  security_count?: number
+}
+
+export interface Credential {
+  id: number
+  name: string
+  credential_type: 'ssh_key' | 'ssh_password'
+  username: string | null
+  password: string | null
+  private_key: string | null
+  description: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface JobTemplate {
+  id: number
+  name: string
+  description: string | null
+  playbook: string
+  repo_url: string
+  branch: string
+  credential_id: number | null
+  execution_environment_id: number | null
+  enabled: number
+  created_at: string
+  updated_at: string
+  credential?: { name: string; credential_type: string; username: string | null } | null
+  execution_environment?: { name: string; image: string } | null
 }
 
 export interface PatchRun {

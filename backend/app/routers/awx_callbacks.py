@@ -111,8 +111,9 @@ def update_runid(body: Notification):
 @router.post("/updatelatestpatch")
 def update_latest_patch(body: LatestPatch):
     conn = database.get_connection()
-    cur = conn.execute("UPDATE hosts SET latest_patch = %s, uptime = %s, updated_at = %s WHERE hostname = %s",
-                       (body.latestpatch.upper(), body.uptime, database.now_iso(), body.hostname))
+    cur = conn.execute("UPDATE hosts SET latest_patch = %s, uptime = %s, updated_at = %s, last_seen = %s "
+                       "WHERE hostname = %s",
+                       (body.latestpatch.upper(), body.uptime, database.now_iso(), database.now_iso(), body.hostname))
     conn.commit()
     rows = cur.rowcount
     conn.close()
@@ -127,8 +128,8 @@ def create_patch_task(body: PatchTask):
     if existing:
         conn.execute(
             "UPDATE hosts SET ip_address = %s, state = COALESCE(%s, state), action = COALESCE(%s, action), "
-            "remarks = COALESCE(%s, remarks), updated_at = %s WHERE id = %s",
-            (body.ipaddress, body.state, body.action, body.remarks, now, existing["id"]),
+            "remarks = COALESCE(%s, remarks), updated_at = %s, last_seen = %s WHERE id = %s",
+            (body.ipaddress, body.state, body.action, body.remarks, now, now, existing["id"]),
         )
         row = conn.execute("SELECT * FROM hosts WHERE id = %s", (existing["id"],)).fetchone()
         host_id = existing["id"]
@@ -149,7 +150,8 @@ def create_patch_task(body: PatchTask):
 @router.post("/updateaction")
 def update_action(body: UpdateAction):
     conn = database.get_connection()
-    cur = conn.execute("UPDATE hosts SET action = %s, updated_at = %s WHERE hostname = %s", (body.action, database.now_iso(), body.hostname))
+    cur = conn.execute("UPDATE hosts SET action = %s, updated_at = %s, last_seen = %s WHERE hostname = %s",
+                       (body.action, database.now_iso(), database.now_iso(), body.hostname))
     conn.commit()
     rows = cur.rowcount
     conn.close()
@@ -159,7 +161,8 @@ def update_action(body: UpdateAction):
 @router.post("/updateremarks")
 def update_remarks(body: UpdateRemarks):
     conn = database.get_connection()
-    cur = conn.execute("UPDATE hosts SET remarks = %s, updated_at = %s WHERE hostname = %s", (body.remarks, database.now_iso(), body.hostname))
+    cur = conn.execute("UPDATE hosts SET remarks = %s, updated_at = %s, last_seen = %s WHERE hostname = %s",
+                       (body.remarks, database.now_iso(), database.now_iso(), body.hostname))
     conn.commit()
     rows = cur.rowcount
     conn.close()
@@ -169,7 +172,8 @@ def update_remarks(body: UpdateRemarks):
 @router.post("/updateonboard")
 def update_onboard(body: UpdateOnBoard):
     conn = database.get_connection()
-    cur = conn.execute("UPDATE hosts SET state = %s, updated_at = %s WHERE hostname = %s", (body.state, database.now_iso(), body.hostname))
+    cur = conn.execute("UPDATE hosts SET state = %s, updated_at = %s, last_seen = %s WHERE hostname = %s",
+                       (body.state, database.now_iso(), database.now_iso(), body.hostname))
     conn.commit()
     rows = cur.rowcount
     conn.close()
@@ -195,7 +199,7 @@ def update_packages(body: UpdatePackages):
             (host_id, pkg.name, pkg.version, pkg.release, pkg.arch, pkg.epoch, pkg.source, pkg.installed_at, now,
              pkg.available_version, int(pkg.needs_update or 0), int(pkg.is_security_update or 0), pkg.category),
         )
-    conn.execute("UPDATE hosts SET updated_at = %s WHERE id = %s", (now, host_id))
+    conn.execute("UPDATE hosts SET updated_at = %s, last_seen = %s WHERE id = %s", (now, now, host_id))
     conn.commit()
     conn.close()
     return f"Updated {len(body.packages)} packages for {body.hostname}"
