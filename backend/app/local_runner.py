@@ -79,14 +79,13 @@ def _connection_vars(credential: dict | None) -> tuple[list[str], str | None]:
     env/ssh_key so ansible-runner adds it to the ssh-agent (documented layout).
     Password auth needs sshpass in the execution environment image.
     """
+    tokens = ["ansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'"]
     if not credential:
-        return [], None
-    tokens = []
+        return tokens, None
     if credential.get("username"):
-        tokens.append(f"ansible_user={credential['username']}")
+        tokens.append(f"ansible_user='{credential['username']}'")
     if credential.get("credential_type") == "ssh_password" and credential.get("password"):
-        tokens.append(f"ansible_ssh_pass={credential['password']}")
-    tokens.append("ansible_ssh_common_args=-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null")
+        tokens.append(f"ansible_ssh_pass='{credential['password']}'")
     ssh_key = credential.get("private_key") if credential.get("credential_type") == "ssh_key" else None
     return tokens, ssh_key
 
