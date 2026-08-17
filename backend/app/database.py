@@ -86,27 +86,61 @@ CREATE TABLE IF NOT EXISTS host_packages (
     UNIQUE(host_id, name, version, release, arch)
 );
 CREATE INDEX IF NOT EXISTS idx_host_packages_host ON host_packages(host_id);
+
+CREATE TABLE IF NOT EXISTS patch_policies (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE,
+    description TEXT,
+    patch_delay_type TEXT NOT NULL DEFAULT 'immediate',
+    delay_minutes INTEGER,
+    fixed_time_utc TEXT,
+    template_id INTEGER,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    last_run_at TEXT,
+    next_run_at TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS policy_assignments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    policy_id INTEGER NOT NULL REFERENCES patch_policies(id) ON DELETE CASCADE,
+    target_type TEXT NOT NULL,  -- host | host_group
+    target_id INTEGER NOT NULL,
+    UNIQUE(policy_id, target_type, target_id)
+);
+
+CREATE TABLE IF NOT EXISTS policy_exclusions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    policy_id INTEGER NOT NULL REFERENCES patch_policies(id) ON DELETE CASCADE,
+    host_id INTEGER NOT NULL,
+    UNIQUE(policy_id, host_id)
+);
 """
 
+# Columns added to existing tables on upgrade (sqlite lacks ADD COLUMN IF NOT EXISTS)
+UPGRADE_COLUMNS = {
+    "host_packages": [
+        ("available_version", "TEXT"),
+        ("needs_update", "INTEGER NOT NULL DEFAULT 0"),
+        ("is_security_update", "INTEGER NOT NULL DEFAULT 0"),
+        ("category", "TEXT"),
+    ],
+}
 
-def hash_password(password: str) -> str:
-    salt = secrets.token_hex(16)
-    digest = hashlib.pbkdf2_hmac("sha256", password.encode(), bytes.fromhex(salt), 200_000)
-    return f"pbkdf2_sha256${salt}${digest.hex()}"
 
-
-def verify_password(password: str, stored: str) -> bool:
-    try:
-        algo, salt, expected = stored.split("$")
-        digest = hashlib.pbkdf2_hmac("sha256", password.encode(), bytes.fromhex(salt), 200_000)
-        return hmac.compare_digest(digest.hex(), expected)
-    except Exception:
-        return False
+def _has_column(conn, table: str, column: str) -> bool:
+    cols = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+    return column in cols
 
 
 def init_db():
     conn = get_connection()
     conn.executescript(SCHEMA)
+    for table, cols in UPGRADE_COLUMNS.items():
+        for col, ddl in cols:
+            if not _has_column(conn, table, col):
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {col} {ddl}")
     conn.commit()
 
     # Seed host groups
@@ -125,6 +159,21 @@ def init_db():
         )
         conn.commit()
     conn.close()
+
+
+def hash_password(password: str) -> str:
+    salt = secrets.token_hex(16)
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode(), bytes.fromhex(salt), 200_000)
+    return f"pbkdf2_sha256${salt}${digest.hex()}"
+
+
+def verify_password(password: str, stored: str) -> bool:
+    try:
+        algo, salt, expected = stored.split("$")
+        digest = hashlib.pbkdf2_hmac("sha256", password.encode(), bytes.fromhex(salt), 200_000)
+        return hmac.compare_digest(digest.hex(), expected)
+    except Exception:
+        return False
 
 
 def create_session(conn, user_id: int) -> str:

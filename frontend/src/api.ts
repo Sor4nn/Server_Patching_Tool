@@ -71,6 +71,25 @@ export const api = {
   listRuns: () => request<{ success: boolean; runs: PatchRun[] }>('/patching/runs'),
   getRun: (id: number) => request<{ success: boolean; run: PatchRun }>(`/patching/runs/${id}`),
   refreshRun: (id: number) => request<{ success: boolean; run: PatchRun }>(`/patching/runs/${id}/refresh`, { method: 'POST' }),
+
+  listPackages: (params = '') => request<{ success: boolean; packages: PackageAggregate[]; total: number; categories: { name: string }[] }>(`/packages${params}`),
+  packageCategories: () => request<{ success: boolean; categories: string[] }>('/packages/categories'),
+
+  listPolicies: () => request<{ success: boolean; policies: PatchPolicy[] }>('/patching/policies'),
+  getPolicy: (id: number) => request<{ success: boolean; policy: PatchPolicy }>(`/patching/policies/${id}`),
+  createPolicy: (body: Record<string, unknown>) =>
+    request<{ success: boolean; policy: PatchPolicy }>('/patching/policies', { method: 'POST', body: JSON.stringify(body) }),
+  updatePolicy: (id: number, body: Record<string, unknown>) =>
+    request<{ success: boolean; policy: PatchPolicy }>(`/patching/policies/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  deletePolicy: (id: number) => request<{ success: boolean }>(`/patching/policies/${id}`, { method: 'DELETE' }),
+  addPolicyAssignment: (id: number, body: { target_type: string; target_id: number }) =>
+    request<{ success: boolean }>(`/patching/policies/${id}/assignments`, { method: 'POST', body: JSON.stringify(body) }),
+  removePolicyAssignment: (id: number, assignmentId: number) =>
+    request<{ success: boolean }>(`/patching/policies/${id}/assignments/${assignmentId}`, { method: 'DELETE' }),
+  addPolicyExclusion: (id: number, hostId: number) =>
+    request<{ success: boolean }>(`/patching/policies/${id}/exclusions?host_id=${hostId}`, { method: 'POST' }),
+  removePolicyExclusion: (id: number, exclusionId: number) =>
+    request<{ success: boolean }>(`/patching/policies/${id}/exclusions/${exclusionId}`, { method: 'DELETE' }),
 }
 
-import type { DashboardStats, Host, HostGroup, PatchRun, User, AwxTemplate, AwxJob, HostPackage } from './types'
+import type { DashboardStats, Host, HostGroup, PatchRun, User, AwxTemplate, AwxJob, HostPackage, PackageAggregate, PatchPolicy } from './types'

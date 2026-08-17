@@ -1,0 +1,79 @@
+- name: Check available RPM updates against destination server
+  hosts: "{{ host_group }}"
+  gather_facts: false
+  strategy: free
+  vars:
+    package_list: []
+    update_list: []
+    security_updates: []
+  tasks:
+    - name: Collect installed RPM list
+      command: rpm -qa --queryformat '%{NAME}|%{VERSION}|%{RELEASE}|%{ARCH}|%{INSTALLTIME}\n'
+      become: no
+      register: rpms
+      ignore_errors: yes
+
+    - name: Collect available updates (dnf)
+      command: dnf check-update --quiet --security=false
+      become: yes
+      register: updates
+      ignore_errors: yes
+
+    - name: Collect security updates (dnf)
+      command: dnf check-update --quiet --security
+      become: yes
+      register: sec_updates
+      ignore_errors: yes
+
+    - name: Parse installed RPM list into JSON
+      set_fact:
+        package_list: "{{ package_list + [{'name': item.split('|')[0], 'version': item.split('|')[1], 'release': item.split('|')[2], 'arch': item.split('|')[3], 'installed_at': item.split('|')[4] if item.split('|')|length > 4 else ''}] }}"
+      loop: "{{ rpms.stdout_lines | default([]) }}"
+      when: rpms is succeeded and rpms.stdout_lines is defined
+
+    - name: Parse available updates into map (name -> new version)
+      set_fact:
+        update_list: "{{ update_list + [{'name': item.split('.')[:-1]|join('.'), 'version': item.split()|last}] }}"
+      loop: "{{ updates.stdout_lines | default([]) }}"
+      when: updates is succeeded and updates.stdout_lines is defined and item.split()|length >= 2
+
+    - name: Build updates lookup map (name -> new version)
+      set_fact:
+        updates_map: "{{ update_list | items2dict(key_name='name', value_name='version') }}"
+      when: update_list | length > 0
+
+    - name: Parse security update names
+      set_fact:
+        security_updates: "{{ security_updates + [item.split('.')[:-1]|join('.')] }}"
+      loop: "{{ sec_updates.stdout_lines | default([]) }}"
+      when: sec_updates is succeeded and sec_updates.stdout_lines is defined
+
+    - name: Decorate packages with available version / update flags
+      set_fact:
+        decorated: "{{ decorated + [item | combine({
+            'available_version': updates_map.get(item.name, ''),
+            'needs_update': (updates_map.get(item.name) is not none) | bool,
+            'is_security_update': (item.name in security_updates) | bool
+          })] }}"
+      loop: "{{ package_list }}"
+      loop_control:
+        label: "{{ item.name }}"
+      when: updates_map is defined
+
+    - name: Update installed packages to DB
+      environment:
+        no_proxy: localhost,127.0.0.1
+      uri:
+        url: "http://<ServerEndpoints_APP>/updatepackages"
+        method: POST
+        body: {
+                "hostname": "{{ inventory_hostname }}",
+                "packages": "{{ decorated }}"
+                }
+        body_format: json
+        return_content: yes
+      delegate_to: 127.0.0.1
+      when: decorated is defined and decorated | length > 0
+
+    - debug:
+        var: decorated

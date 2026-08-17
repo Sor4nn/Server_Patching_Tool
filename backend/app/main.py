@@ -5,10 +5,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
-from . import config, database
-from .routers import auth, awx_callbacks, dashboard, host_groups, hosts, patching, users
+from . import config, database, scheduler
+from .routers import auth, awx_callbacks, dashboard, host_groups, hosts, packages, patching, policies, users
 
 database.init_db()
+scheduler.start_scheduler()
 
 app = FastAPI(title="GPTA - Gotta Patchem Them All", version="1.0.0")
 
@@ -21,7 +22,7 @@ app.add_middleware(
 )
 
 for r in (auth.router, dashboard.router, hosts.router, host_groups.router, users.router, patching.router,
-          awx_callbacks.router):
+          packages.router, policies.router, awx_callbacks.router):
     app.include_router(r)
 
 

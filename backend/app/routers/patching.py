@@ -26,11 +26,11 @@ def _run_to_dict(row) -> dict:
     return dict(row)
 
 
-def _record_failed_run(conn, run_id, template_id, template_name, extra_vars, host_count, username):
+def _record_failed_run(conn, run_id, template_id, template_name, extra_vars, host_count, username, run_type="manual"):
     cur = conn.execute(
         "INSERT INTO patch_runs (run_id, template_id, template_name, status, type, extra_vars, host_count, created_by, created_at) "
-        "VALUES (?, ?, ?, 'failed', 'manual', ?, ?, ?, ?)",
-        (run_id, template_id, template_name, json.dumps(extra_vars), host_count, username, database.now_iso()),
+        "VALUES (?, ?, ?, 'failed', ?, ?, ?, ?, ?)",
+        (run_id, template_id, template_name, run_type, extra_vars, host_count, username, database.now_iso()),
     )
     conn.commit()
     return _run_to_dict(conn.execute("SELECT * FROM patch_runs WHERE id = ?", (cur.lastrowid,)).fetchone())
@@ -99,9 +99,10 @@ def create_run(body: TriggerRun, user: dict = Depends(require_admin)):
     return {"success": True, "run": _run_to_dict(run)}
 
 
-@router.post("/trigger")
-def trigger(body: TriggerRun, user: dict = Depends(require_admin)):
-    """Launch a real patch run against AWX.
+def orchestrate_run(conn, template_id, host_ids, extra_vars, username, run_type="manual"):
+    """Launch a real patch run against AWX and record it in the DB.
+
+    Shared by the manual /trigger endpoint and the scheduler.
 
     Flow:
       1. generate run_id
@@ -110,31 +111,25 @@ def trigger(body: TriggerRun, user: dict = Depends(require_admin)):
       4. launch the job template scoped to that group, with run_id + vault info in extra_vars
       5. record the run (success or failure) in the DB
     """
-    conn = database.get_connection()
     run_id = _new_run_id()
 
     template_name = None
     try:
-        tpl = awx.get_job_template_data(body.template_id)
-        template_name = tpl.get("name", f"template-{body.template_id}")
+        tpl = awx.get_job_template_data(template_id)
+        template_name = tpl.get("name", f"template-{template_id}")
     except Exception as e:
-        _record_failed_run(conn, run_id, body.template_id, template_name, {}, 0, user["username"])
-        conn.close()
-        raise HTTPException(status_code=502, detail=f"Could not reach AWX: {e}")
+        run = _record_failed_run(conn, run_id, template_id, template_name, json.dumps(extra_vars or {}), 0,
+                                 username, run_type)
+        return {"success": False, "run": _run_to_dict(run), "awx": {"error": str(e)},
+                "error": f"Could not reach AWX: {e}"}
 
     hostnames = []
-    if body.host_ids:
-        placeholders = ",".join("?" * len(body.host_ids))
+    if host_ids:
+        placeholders = ",".join("?" * len(host_ids))
         hostnames = [r["hostname"] for r in
-                     conn.execute(f"SELECT hostname FROM hosts WHERE id IN ({placeholders})", body.host_ids).fetchall()]
+                     conn.execute(f"SELECT hostname FROM hosts WHERE id IN ({placeholders})", host_ids).fetchall()]
 
-    extra_vars = {}
-    if body.extra_vars:
-        try:
-            extra_vars = json.loads(body.extra_vars)
-        except json.JSONDecodeError:
-            conn.close()
-            raise HTTPException(status_code=400, detail="extra_vars must be valid JSON")
+    extra_vars = dict(extra_vars or {})
     extra_vars["run_id"] = run_id
 
     # CSV the playbook consumes (compat with legacy awx_handler flow)
@@ -152,26 +147,42 @@ def trigger(body: TriggerRun, user: dict = Depends(require_admin)):
         extra_vars["host_group"] = group["name"]
         extra_vars["encryptedPasswordFile"] = "Vault/sudoUserEncryptfile.yml"
     except Exception as e:
-        conn.close()
-        raise HTTPException(status_code=502, detail=f"AWX group setup failed: {e}")
+        run = _record_failed_run(conn, run_id, template_id, template_name, json.dumps(extra_vars),
+                                 len(hostnames), username, run_type)
+        return {"success": False, "run": _run_to_dict(run), "awx": {"error": str(e)},
+                "error": f"AWX group setup failed: {e}"}
 
-    result = awx.launch_job(body.template_id, json.dumps(extra_vars), limit_hosts=hostnames or None)
+    result = awx.launch_job(template_id, json.dumps(extra_vars), limit_hosts=hostnames or None)
     if not result.get("success"):
         # record the failed run so operators can see it
-        run = _record_failed_run(conn, run_id, body.template_id, template_name, extra_vars, len(hostnames), user["username"])
-        conn.close()
-        return {"success": False, "run": run, "awx": result, "error": result.get("error")}
+        run = _record_failed_run(conn, run_id, template_id, template_name, json.dumps(extra_vars),
+                                 len(hostnames), username, run_type)
+        return {"success": False, "run": _run_to_dict(run), "awx": result, "error": result.get("error")}
 
     cur = conn.execute(
         "INSERT INTO patch_runs (run_id, template_id, template_name, status, type, extra_vars, host_count, created_by, created_at, started_at) "
-        "VALUES (?, ?, ?, 'running', 'manual', ?, ?, ?, ?, ?)",
-        (run_id, body.template_id, template_name, json.dumps(extra_vars), len(hostnames), user["username"],
+        "VALUES (?, ?, ?, 'running', ?, ?, ?, ?, ?, ?)",
+        (run_id, template_id, template_name, run_type, json.dumps(extra_vars), len(hostnames), username,
          database.now_iso(), database.now_iso()),
     )
     conn.commit()
     run = conn.execute("SELECT * FROM patch_runs WHERE id = ?", (cur.lastrowid,)).fetchone()
-    conn.close()
     return {"success": True, "run": _run_to_dict(run), "awx": result, "hostnames": hostnames}
+
+
+@router.post("/trigger")
+def trigger(body: TriggerRun, user: dict = Depends(require_admin)):
+    conn = database.get_connection()
+    try:
+        extra_vars = json.loads(body.extra_vars) if body.extra_vars else {}
+    except json.JSONDecodeError:
+        conn.close()
+        raise HTTPException(status_code=400, detail="extra_vars must be valid JSON")
+    try:
+        result = orchestrate_run(conn, body.template_id, body.host_ids, extra_vars, user["username"], "manual")
+    finally:
+        conn.close()
+    return result
 
 
 @router.post("/runs/{run_id}/refresh")

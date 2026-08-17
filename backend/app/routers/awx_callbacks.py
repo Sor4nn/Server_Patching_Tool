@@ -68,6 +68,10 @@ class PackageInfo(BaseModel):
     epoch: Optional[str] = None
     source: Optional[str] = None
     installed_at: Optional[str] = None
+    available_version: Optional[str] = None
+    needs_update: Optional[bool] = None
+    is_security_update: Optional[bool] = None
+    category: Optional[str] = None
 
 
 class UpdatePackages(BaseModel):
@@ -184,9 +188,11 @@ def update_packages(body: UpdatePackages):
     now = database.now_iso()
     for pkg in body.packages:
         conn.execute(
-            "INSERT OR IGNORE INTO host_packages (host_id, name, version, release, arch, epoch, source, installed_at, created_at) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            (host_id, pkg.name, pkg.version, pkg.release, pkg.arch, pkg.epoch, pkg.source, pkg.installed_at, now),
+            "INSERT OR IGNORE INTO host_packages (host_id, name, version, release, arch, epoch, source, installed_at, created_at, "
+            "available_version, needs_update, is_security_update, category) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (host_id, pkg.name, pkg.version, pkg.release, pkg.arch, pkg.epoch, pkg.source, pkg.installed_at, now,
+             pkg.available_version, int(pkg.needs_update or 0), int(pkg.is_security_update or 0), pkg.category),
         )
     conn.execute("UPDATE hosts SET updated_at = ? WHERE id = ?", (now, host_id))
     conn.commit()

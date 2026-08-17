@@ -58,6 +58,61 @@ export interface HostPackage {
   source: string | null
   installed_at: string | null
   created_at: string
+  available_version: string | null
+  needs_update: number | null
+  is_security_update: number | null
+  category: string | null
+}
+
+export interface PackageHost {
+  hostId: number
+  friendlyName: string
+  osType: string | null
+  currentVersion: string
+  availableVersion: string | null
+  needsUpdate: boolean
+  isSecurityUpdate: boolean
+}
+
+export interface PackageAggregate {
+  id: number
+  name: string
+  category: string | null
+  latest_version: string | null
+  packageHostsCount: number
+  packageHosts: PackageHost[]
+  stats: { totalInstalls: number; updatesNeeded: number; securityUpdates: number }
+  sourceRepos: { repoId: number; repoName: string; repoUrl: string; repoType: string }[]
+}
+
+export interface PatchPolicy {
+  id: number
+  name: string
+  description: string | null
+  patch_delay_type: 'immediate' | 'delayed' | 'fixed_time'
+  delay_minutes: number | null
+  fixed_time_utc: string | null
+  template_id: number | null
+  enabled: number
+  last_run_at: string | null
+  next_run_at: string | null
+  created_at: string
+  updated_at: string
+  assignments: PolicyAssignment[]
+  exclusions: PolicyExclusion[]
+}
+
+export interface PolicyAssignment {
+  id: number
+  policy_id: number
+  target_type: 'host' | 'host_group'
+  target_id: number
+}
+
+export interface PolicyExclusion {
+  id: number
+  policy_id: number
+  host_id: number
 }
 
 export interface AwxTemplate {
