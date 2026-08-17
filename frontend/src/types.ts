@@ -179,6 +179,16 @@ export interface DashboardStats {
   total_runs: number
 }
 
+export interface ExecutionEnvironment {
+  id: number
+  name: string
+  image: string
+  description: string | null
+  is_default: number
+  created_at: string
+  updated_at: string
+}
+
 export interface InventorySource {
   id: number
   name: string

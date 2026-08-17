@@ -50,6 +50,7 @@ services:
       - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
     volumes:
       - gpta-data:/data
+      - /var/run/docker.sock:/var/run/docker.sock
 
 volumes:
   gpta-data:

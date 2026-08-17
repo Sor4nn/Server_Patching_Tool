@@ -121,6 +121,13 @@ export const api = {
   deleteSource: (id: number) => request<{ success: boolean }>(`/inventory-sources/${id}`, { method: 'DELETE' }),
   syncSource: (id: number) =>
     request<{ success: boolean; summary?: { added_groups: number; added_hosts: number; updated_hosts: number; removed_hosts: number; files: number }; error?: string }>(`/inventory-sources/${id}/sync`, { method: 'POST' }),
+
+  listEnvironments: () => request<{ success: boolean; environments: ExecutionEnvironment[] }>('/execution-environment'),
+  createEnvironment: (body: Record<string, unknown>) =>
+    request<{ success: boolean; environment: ExecutionEnvironment }>('/execution-environment', { method: 'POST', body: JSON.stringify(body) }),
+  updateEnvironment: (id: number, body: Record<string, unknown>) =>
+    request<{ success: boolean; environment: ExecutionEnvironment }>(`/execution-environment/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
+  deleteEnvironment: (id: number) => request<{ success: boolean }>(`/execution-environment/${id}`, { method: 'DELETE' }),
 }
 
-import type { DashboardStats, Host, HostGroup, PatchRun, User, AwxTemplate, AwxJob, HostPackage, PackageAggregate, PatchPolicy, ExecutionOption, PatchTreeNode, ButtonBinding, InventorySource } from './types'
+import type { DashboardStats, Host, HostGroup, PatchRun, User, AwxTemplate, AwxJob, HostPackage, PackageAggregate, PatchPolicy, ExecutionOption, PatchTreeNode, ButtonBinding, InventorySource, ExecutionEnvironment } from './types'

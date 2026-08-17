@@ -35,8 +35,11 @@ class OptionUpdate(BaseModel):
 
 
 def _validate(body: OptionCreate | OptionUpdate):
-    if body.provider is not None and body.provider not in ("awx", "jenkins"):
-        raise HTTPException(status_code=400, detail="provider must be 'awx' or 'jenkins'")
+    if body.provider is not None and body.provider not in ("awx", "jenkins", "local"):
+        raise HTTPException(status_code=400, detail="provider must be 'awx', 'jenkins' or 'local'")
+    if body.provider == "local":
+        # local provider: `url` is the playbook git repository
+        return
     if body.url is not None and not body.url.startswith(("http://", "https://")):
         raise HTTPException(status_code=400, detail="url must start with http:// or https://")
     if body.auth_mode is not None and body.auth_mode not in ("basic", "token"):

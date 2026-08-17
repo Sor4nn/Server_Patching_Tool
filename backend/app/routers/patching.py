@@ -5,7 +5,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from .. import awx, config, database
+from .. import awx, config, database, local_runner
 from .auth import current_user, require_admin
 
 router = APIRouter(prefix="/api/v1/patching", tags=["patching"])
@@ -101,29 +101,32 @@ def create_run(body: TriggerRun, user: dict = Depends(require_admin)):
     return {"success": True, "run": _run_to_dict(run)}
 
 
+def _active_connection():
+    """Return the active execution_options row, or None."""
+    conn = None
+    try:
+        conn = database.get_connection()
+        row = conn.execute("SELECT * FROM execution_options WHERE is_active = 1 ORDER BY id LIMIT 1").fetchone()
+        return dict(row) if row else None
+    except Exception:
+        return None
+    finally:
+        if conn is not None:
+            conn.close()
+
+
 def orchestrate_run(conn, template_id, host_ids, extra_vars, username, run_type="manual"):
-    """Launch a real patch run against AWX and record it in the DB.
+    """Launch a real patch run and record it in the DB.
 
-    Shared by the manual /trigger endpoint and the scheduler.
+    Shared by the manual /trigger endpoint, the scheduler, and button runs.
 
-    Flow:
-      1. generate run_id
-      2. build the host CSV the playbook consumes
-      3. create/refresh an AWX group in the master inventory holding the target hosts
-      4. launch the job template scoped to that group, with run_id + vault info in extra_vars
-      5. record the run (success or failure) in the DB
+    Provider routing:
+      - awx    -> launch the AWX job template (legacy flow)
+      - local  -> run the playbook in a Docker execution environment via ansible-runner
+    The active execution option decides which provider is used. Local runs use
+    the option's `url` as the playbook git repository.
     """
     run_id = _new_run_id()
-
-    template_name = None
-    try:
-        tpl = awx.get_job_template_data(template_id)
-        template_name = tpl.get("name", f"template-{template_id}")
-    except Exception as e:
-        run = _record_failed_run(conn, run_id, template_id, template_name, json.dumps(extra_vars or {}), 0,
-                                 username, run_type)
-        return {"success": False, "run": _run_to_dict(run), "awx": {"error": str(e)},
-                "error": f"Could not reach AWX: {e}"}
 
     hostnames = []
     if host_ids:
@@ -141,6 +144,59 @@ def orchestrate_run(conn, template_id, host_ids, extra_vars, username, run_type=
         f.write("host\n")
         for h in hostnames:
             f.write(f"{h}\n")
+
+    option = _active_connection()
+    provider = (option or {}).get("provider", "awx")
+
+    if provider == "local":
+        return _orchestrate_local(conn, run_id, option.get("url") or "", option.get("username") or "main",
+                                  hostnames, extra_vars, username, run_type)
+    return _orchestrate_awx(conn, run_id, template_id, hostnames, extra_vars, username, run_type)
+
+
+def _orchestrate_local(conn, run_id, repo_url, branch, hostnames, extra_vars, username, run_type):
+    """Run the playbook in a Docker execution environment (ansible-runner)."""
+    extra_vars["host_group"] = ",".join(hostnames) if hostnames else "localhost"
+    playbook = (extra_vars.pop("playbook", None)
+                or local_runner.PLAYBOOK_BY_RUN_TYPE.get(run_type, "onepatch_execution.yml"))
+
+    result = local_runner.run_playbook(
+        run_id=run_id,
+        repo_url=repo_url,
+        branch=branch,
+        playbook=playbook,
+        hostnames=hostnames,
+        extra_vars=extra_vars,
+        execution_environment=extra_vars.pop("execution_environment", None),
+    )
+
+    status = "successful" if result.get("success") else "failed"
+    cur = conn.execute(
+        "INSERT INTO patch_runs (run_id, template_id, template_name, status, type, extra_vars, host_count, created_by, created_at, started_at, finished_at) "
+        "VALUES (%s, NULL, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+        (run_id, playbook, status, run_type, json.dumps(extra_vars), len(hostnames), username,
+         database.now_iso(), database.now_iso(), database.now_iso()),
+    )
+    conn.commit()
+    row_id = cur.fetchone()["id"]
+    run = conn.execute("SELECT * FROM patch_runs WHERE id = %s", (row_id,)).fetchone()
+    if not result.get("success"):
+        return {"success": False, "run": _run_to_dict(run), "error": result.get("error"),
+                "local": {"exit_code": result.get("exit_code")}}
+    return {"success": True, "run": _run_to_dict(run), "local": result}
+
+
+def _orchestrate_awx(conn, run_id, template_id, hostnames, extra_vars, username, run_type):
+    """Legacy AWX flow: launch the job template scoped to an AWX group."""
+    template_name = None
+    try:
+        tpl = awx.get_job_template_data(template_id)
+        template_name = tpl.get("name", f"template-{template_id}")
+    except Exception as e:
+        run = _record_failed_run(conn, run_id, template_id, template_name, json.dumps(extra_vars or {}), 0,
+                                 username, run_type)
+        return {"success": False, "run": _run_to_dict(run), "awx": {"error": str(e)},
+                "error": f"Could not reach AWX: {e}"}
 
     # Group in AWX inventory so playbooks can run `hosts: "{{ host_group }}"`
     group_name = f"gpta_{run_id}"

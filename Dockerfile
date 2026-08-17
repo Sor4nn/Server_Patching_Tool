@@ -11,6 +11,11 @@ FROM python:3.12-slim AS runtime
 WORKDIR /app
 ENV PYTHONUNBUFFERED=1
 
+# git for inventory source sync / playbook repo clone; docker CLI for
+# local-provider runs (execution environments) via the host docker socket
+RUN apt-get update && apt-get install -y --no-install-recommends git docker.io \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 

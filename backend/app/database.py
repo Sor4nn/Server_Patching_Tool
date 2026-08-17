@@ -153,6 +153,16 @@ CREATE TABLE IF NOT EXISTS button_bindings (
     updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS execution_environments (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    image TEXT NOT NULL,  -- container image ansible-runner runs in (e.g. quay.io/ansible/ansible-runner:stable-2.17-latest)
+    description TEXT,
+    is_default INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS inventory_sources (
     id SERIAL PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
