@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { api } from '../api'
 import { useAuth } from '../App'
 import type { AwxTemplate, Host, HostGroup, PatchPolicy } from '../types'
+import { IconPlus } from '../components/Icons'
 
 type DelayType = PatchPolicy['patch_delay_type']
 
@@ -57,30 +58,32 @@ export default function Policies() {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">Automation Options</h1>
-          <p className="page-sub">Schedule and target patch runs</p>
+          <h1 className="page-title">Patch Policies & Automation</h1>
+          <p className="page-sub">Schedule and target automated patch orchestration runs</p>
         </div>
         {isAdmin && (
-          <button className="btn btn-primary" onClick={() => setShowCreate(true)}>+ New Policy</button>
+          <button type="button" className="btn btn-primary" onClick={() => setShowCreate(true)}>
+            <IconPlus size={14} /> New Policy
+          </button>
         )}
       </div>
 
-      {message && <div className="login-error">{message}</div>}
+      {message && <div className="login-error" style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', borderColor: 'rgba(59, 130, 246, 0.4)' }}>{message}</div>}
 
       <div className="card">
         {policies.length === 0 ? (
-          <p className="muted">No policies yet. Create one to schedule patch runs.</p>
+          <p className="muted">No policies created yet. Create one to schedule automated patching runs.</p>
         ) : (
           <div className="table-wrap">
             <table>
               <thead>
-                <tr><th>Name</th><th>When</th><th>Targets</th><th>Exclusions</th><th>Next Run</th><th>State</th>{isAdmin && <th />}</tr>
+                <tr><th>Policy Name</th><th>When</th><th>Targets</th><th>Exclusions</th><th>Next Run</th><th>State</th>{isAdmin && <th />}</tr>
               </thead>
               <tbody>
                 {policies.map((p) => (
                   <tr key={p.id}>
                     <td>
-                      <div style={{ fontWeight: 600 }}>{p.name}</div>
+                      <div style={{ fontWeight: 600, color: '#f1f5f9' }}>{p.name}</div>
                       {p.description && <div className="muted" style={{ fontSize: 12 }}>{p.description}</div>}
                     </td>
                     <td>{delayLabel(p)}</td>
@@ -104,8 +107,8 @@ export default function Policies() {
                     </td>
                     {isAdmin && (
                       <td className="text-right" style={{ whiteSpace: 'nowrap' }}>
-                        <button className="btn btn-sm" onClick={() => setEditing(p)}>Edit</button>{' '}
-                        <button className="btn btn-sm btn-danger" onClick={() => remove(p)}>Delete</button>
+                        <button type="button" className="btn btn-sm" onClick={() => setEditing(p)}>Edit</button>{' '}
+                        <button type="button" className="btn btn-sm btn-danger" onClick={() => remove(p)}>Delete</button>
                       </td>
                     )}
                   </tr>
@@ -245,7 +248,6 @@ function PolicyModal({ policy, hosts, groups, templates, onClose, onDone }: {
               <option value="">None — manual only</option>
               {templates.map((t) => <option key={t.id} value={t.id}>{t.id} — {t.name}</option>)}
             </select>
-            {templates.length === 0 && <small className="muted">AWX unreachable — no templates listed</small>}
           </div>
 
           {!policy ? (
@@ -346,7 +348,7 @@ function PolicyModal({ policy, hosts, groups, templates, onClose, onDone }: {
           <div className="modal-actions">
             <button type="button" className="btn" onClick={onClose}>Cancel</button>
             <button type="submit" className="btn btn-primary" disabled={busy}>
-              {busy ? 'Saving…' : policy ? 'Save' : 'Create'}
+              {busy ? 'Saving…' : policy ? 'Save Changes' : 'Create Policy'}
             </button>
           </div>
         </form>

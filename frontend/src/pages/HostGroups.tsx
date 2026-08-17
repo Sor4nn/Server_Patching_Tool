@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../api'
 import { useAuth } from '../App'
 import type { HostGroup } from '../types'
+import { IconPlus } from '../components/Icons'
 
 export default function HostGroups() {
   const { user } = useAuth()
@@ -35,10 +36,14 @@ export default function HostGroups() {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">Host Groups</h1>
-          <p className="page-sub">{groups.length} groups</p>
+          <h1 className="page-title">Host Groups & Repos</h1>
+          <p className="page-sub">{groups.length} organized groups in estate</p>
         </div>
-        {isAdmin && <button className="btn btn-primary" onClick={() => setShowCreate(true)}>+ New Group</button>}
+        {isAdmin && (
+          <button type="button" className="btn btn-primary" onClick={() => setShowCreate(true)}>
+            <IconPlus size={14} /> New Group
+          </button>
+        )}
       </div>
 
       {error && <div className="login-error">{error}</div>}
@@ -47,21 +52,21 @@ export default function HostGroups() {
         <div className="table-wrap">
           <table>
             <thead>
-              <tr><th>Name</th><th>Description</th>{isAdmin && <th />}</tr>
+              <tr><th>Group Name</th><th>Description</th>{isAdmin && <th />}</tr>
             </thead>
             <tbody>
               {groups.map((g) => (
                 <tr key={g.id}>
-                  <td>{g.name}</td>
+                  <td style={{ fontWeight: 600, color: '#f1f5f9' }}>{g.name}</td>
                   <td className="muted">{g.description || '-'}</td>
                   {isAdmin && (
                     <td className="text-right">
-                      <button className="btn btn-sm btn-danger" onClick={() => remove(g.id)}>Delete</button>
+                      <button type="button" className="btn btn-sm btn-danger" onClick={() => remove(g.id)}>Delete</button>
                     </td>
                   )}
                 </tr>
               ))}
-              {groups.length === 0 && <tr><td colSpan={isAdmin ? 3 : 2} className="muted">No groups yet.</td></tr>}
+              {groups.length === 0 && <tr><td colSpan={isAdmin ? 3 : 2} className="muted">No groups created yet.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -96,20 +101,20 @@ function CreateGroupModal({ onClose, onCreated }: { onClose: () => void; onCreat
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h3>New Host Group</h3>
+        <h3>Create Host Group</h3>
         {error && <div className="login-error">{error}</div>}
         <form onSubmit={submit}>
           <div className="form-row">
             <label>Name *</label>
-            <input required value={name} onChange={(e) => setName(e.target.value)} />
+            <input required value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Production Webservers" />
           </div>
           <div className="form-row">
             <label>Description</label>
-            <textarea value={description} onChange={(e) => setDescription(e.target.value)} />
+            <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Group notes or region..." />
           </div>
           <div className="modal-actions">
             <button type="button" className="btn" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={busy}>{busy ? 'Creating…' : 'Create'}</button>
+            <button type="submit" className="btn btn-primary" disabled={busy}>{busy ? 'Creating…' : 'Create Group'}</button>
           </div>
         </form>
       </div>

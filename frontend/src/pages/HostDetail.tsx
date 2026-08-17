@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../App'
 import type { Host, HostGroup, HostPackage } from '../types'
+import { IconChevronLeft, IconSearch } from '../components/Icons'
 
 export default function HostDetail() {
   const { id } = useParams()
@@ -80,31 +81,33 @@ export default function HostDetail() {
     <div>
       <div className="page-header">
         <div>
-          <button className="btn btn-sm mb" onClick={() => navigate('/hosts')}>← Back to Hosts</button>
+          <button type="button" className="btn btn-sm mb" onClick={() => navigate('/hosts')}>
+            <IconChevronLeft size={14} /> Back to Hosts
+          </button>
           <h1 className="page-title">{host.friendly_name || host.hostname}</h1>
           <p className="page-sub mono">{host.hostname} · {host.ip_address || 'no IP'}</p>
         </div>
-        {isAdmin && <button className="btn btn-danger" onClick={remove}>Delete Host</button>}
+        {isAdmin && <button type="button" className="btn btn-danger" onClick={remove}>Delete Host</button>}
       </div>
 
       {error && <div className="login-error">{error}</div>}
 
       <div className="grid-2">
         <div className="card">
-          <h2 className="card-title">Details</h2>
+          <h2 className="card-title">Host Details</h2>
           <div className="table-wrap">
             <table>
               <tbody>
-                <tr><th>Hostname</th><td className="mono">{host.hostname}</td></tr>
-                <tr><th>IP Address</th><td className="mono">{host.ip_address || '-'}</td></tr>
+                <tr><th>Hostname</th><td className="mono" style={{ color: '#60a5fa' }}>{host.hostname}</td></tr>
+                <tr><th>IP Address</th><td className="mono muted">{host.ip_address || '-'}</td></tr>
                 <tr><th>OS Make</th><td>{host.os_make || '-'}</td></tr>
                 <tr><th>OS Version</th><td>{host.os_version || '-'}</td></tr>
                 <tr><th>Latest Patch</th><td className="mono">{host.latest_patch || '-'}</td></tr>
                 <tr><th>Uptime</th><td>{host.uptime || '-'}</td></tr>
-                <tr><th>State</th><td>{host.state || 'Unknown'}</td></tr>
+                <tr><th>State</th><td>{host.state ? <span className="badge badge-green">{host.state}</span> : <span className="badge badge-gray">Unknown</span>}</td></tr>
                 <tr><th>Action</th><td>{host.action || '-'}</td></tr>
                 <tr><th>Group</th><td>{host.group?.name || '-'}</td></tr>
-                <tr><th>Remarks</th><td>{host.remarks || '-'}</td></tr>
+                <tr><th>Remarks</th><td className="muted">{host.remarks || '-'}</td></tr>
                 <tr><th>Created</th><td className="muted">{host.created_at.slice(0, 19).replace('T', ' ')}</td></tr>
                 <tr><th>Updated</th><td className="muted">{host.updated_at.slice(0, 19).replace('T', ' ')}</td></tr>
               </tbody>
@@ -114,7 +117,7 @@ export default function HostDetail() {
 
         {isAdmin && (
           <div className="card">
-            <h2 className="card-title">Edit</h2>
+            <h2 className="card-title">Edit Configuration</h2>
             <div className="form-row">
               <label>Friendly Name</label>
               <input value={form.friendly_name} onChange={(e) => setForm({ ...form, friendly_name: e.target.value })} />
@@ -135,7 +138,7 @@ export default function HostDetail() {
               <textarea value={form.remarks} onChange={(e) => setForm({ ...form, remarks: e.target.value })} />
             </div>
             <div className="flex flex-between">
-              <button className="btn btn-primary" onClick={save}>Save Changes</button>
+              <button type="button" className="btn btn-primary" onClick={save}>Save Changes</button>
               {saved && <span className="badge badge-green">Saved ✓</span>}
             </div>
           </div>
@@ -144,13 +147,16 @@ export default function HostDetail() {
 
       <div className="card mt">
         <div className="flex-between mb">
-          <h2 className="card-title" style={{ margin: 0 }}>Installed RPMs ({pkgCount})</h2>
-          <input
-            className="search-input"
-            placeholder="Search package…"
-            value={pkgSearch}
-            onChange={(e) => setPkgSearch(e.target.value)}
-          />
+          <h2 className="card-title" style={{ margin: 0 }}>Installed Packages ({pkgCount})</h2>
+          <div className="top-search-bar" style={{ width: 260 }}>
+            <IconSearch className="top-search-icon" size={14} />
+            <input
+              className="top-search-input"
+              placeholder="Filter package name…"
+              value={pkgSearch}
+              onChange={(e) => setPkgSearch(e.target.value)}
+            />
+          </div>
         </div>
         {packages.length === 0 ? (
           <p className="muted">No installed packages recorded. Run the <span className="mono">collect_packages</span> playbook against this host to populate RPM data.</p>
@@ -163,9 +169,9 @@ export default function HostDetail() {
               <tbody>
                 {packages.map((p) => (
                   <tr key={p.id}>
-                    <td className="mono">{p.name}</td>
+                    <td className="mono" style={{ color: '#60a5fa', fontWeight: 600 }}>{p.name}</td>
                     <td className="mono">{p.version || '-'}</td>
-                    <td className="mono">{p.release || '-'}</td>
+                    <td className="mono muted">{p.release || '-'}</td>
                     <td>{p.arch || '-'}</td>
                     <td className="muted">{p.installed_at || '-'}</td>
                   </tr>

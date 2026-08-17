@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../App'
 import type { Host, HostGroup } from '../types'
+import { IconPlus, IconSearch } from '../components/Icons'
 
 function StateBadge({ state }: { state: string | null }) {
   if (!state) return <span className="badge badge-gray">Unknown</span>
@@ -32,7 +33,7 @@ export default function Hosts() {
   useEffect(() => { load() }, [])
 
   const filtered = search
-    ? hosts.filter((h) => (h.hostname + ' ' + (h.ip_address || '')).toLowerCase().includes(search.toLowerCase()))
+    ? hosts.filter((h) => (h.hostname + ' ' + (h.ip_address || '') + ' ' + (h.friendly_name || '')).toLowerCase().includes(search.toLowerCase()))
     : hosts
 
   const remove = async (id: number) => {
@@ -50,20 +51,27 @@ export default function Hosts() {
       <div className="page-header">
         <div>
           <h1 className="page-title">Hosts</h1>
-          <p className="page-sub">{hosts.length} hosts registered</p>
+          <p className="page-sub">{hosts.length} hosts registered in estate</p>
         </div>
-        {isAdmin && <button className="btn btn-primary" onClick={() => setShowCreate(true)}>+ Add Host</button>}
+        {isAdmin && (
+          <button type="button" className="btn btn-primary" onClick={() => setShowCreate(true)}>
+            <IconPlus size={14} /> Add Host
+          </button>
+        )}
       </div>
 
       {error && <div className="login-error">{error}</div>}
 
-      <div className="mb">
-        <input
-          className="search-input"
-          placeholder="Search hostname or IP…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+      <div className="mb flex flex-between">
+        <div className="top-search-bar" style={{ width: 340 }}>
+          <IconSearch className="top-search-icon" size={15} />
+          <input
+            className="top-search-input"
+            placeholder="Search hostname or IP…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
       </div>
 
       <div className="card">
@@ -71,23 +79,33 @@ export default function Hosts() {
           <table>
             <thead>
               <tr>
-                <th>Hostname</th><th>IP Address</th><th>OS</th><th>Group</th>
-                <th>Latest Patch</th><th>State</th><th>Updated</th>{isAdmin && <th />}
+                <th>Hostname</th>
+                <th>IP Address</th>
+                <th>OS</th>
+                <th>Group</th>
+                <th>Latest Patch</th>
+                <th>State</th>
+                <th>Updated</th>
+                {isAdmin && <th />}
               </tr>
             </thead>
             <tbody>
               {filtered.map((h) => (
                 <tr key={h.id}>
-                  <td><Link to={`/hosts/${h.id}`}>{h.friendly_name || h.hostname}</Link></td>
-                  <td className="mono">{h.ip_address || '-'}</td>
+                  <td>
+                    <Link to={`/hosts/${h.id}`} style={{ color: '#60a5fa', fontWeight: 600, textDecoration: 'none' }}>
+                      {h.friendly_name || h.hostname}
+                    </Link>
+                  </td>
+                  <td className="mono muted">{h.ip_address || '-'}</td>
                   <td>{[h.os_make, h.os_version].filter(Boolean).join(' ') || '-'}</td>
                   <td>{h.group?.name || '-'}</td>
-                  <td className="mono">{h.latest_patch || '-'}</td>
+                  <td className="mono muted">{h.latest_patch || '-'}</td>
                   <td><StateBadge state={h.state} /></td>
                   <td className="muted">{h.updated_at.slice(0, 10)}</td>
                   {isAdmin && (
                     <td className="text-right">
-                      <button className="btn btn-sm btn-danger" onClick={() => remove(h.id)}>Delete</button>
+                      <button type="button" className="btn btn-sm btn-danger" onClick={() => remove(h.id)}>Delete</button>
                     </td>
                   )}
                 </tr>
@@ -132,16 +150,16 @@ function CreateHostModal({ groups, onClose, onCreated }: {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h3>Add Host</h3>
+        <h3>Add New Host</h3>
         {error && <div className="login-error">{error}</div>}
         <form onSubmit={submit}>
           <div className="form-row">
             <label>Hostname *</label>
-            <input required value={form.hostname} onChange={(e) => setForm({ ...form, hostname: e.target.value })} />
+            <input required value={form.hostname} onChange={(e) => setForm({ ...form, hostname: e.target.value })} placeholder="e.g. srv-prod-01" />
           </div>
           <div className="form-row">
             <label>IP Address</label>
-            <input value={form.ip_address} onChange={(e) => setForm({ ...form, ip_address: e.target.value })} />
+            <input value={form.ip_address} onChange={(e) => setForm({ ...form, ip_address: e.target.value })} placeholder="192.168.1.50" />
           </div>
           <div className="form-row">
             <label>OS Make</label>
@@ -149,7 +167,7 @@ function CreateHostModal({ groups, onClose, onCreated }: {
           </div>
           <div className="form-row">
             <label>OS Version</label>
-            <input value={form.os_version} onChange={(e) => setForm({ ...form, os_version: e.target.value })} />
+            <input value={form.os_version} onChange={(e) => setForm({ ...form, os_version: e.target.value })} placeholder="e.g. Rocky Linux 9.2" />
           </div>
           <div className="form-row">
             <label>Friendly Name</label>
@@ -164,7 +182,7 @@ function CreateHostModal({ groups, onClose, onCreated }: {
           </div>
           <div className="modal-actions">
             <button type="button" className="btn" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={busy}>{busy ? 'Creating…' : 'Create'}</button>
+            <button type="submit" className="btn btn-primary" disabled={busy}>{busy ? 'Creating…' : 'Create Host'}</button>
           </div>
         </form>
       </div>

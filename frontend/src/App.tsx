@@ -2,6 +2,26 @@ import { createContext, useCallback, useContext, useEffect, useState } from 'rea
 import { Navigate, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { api } from './api'
 import type { User } from './types'
+import { TopNav } from './components/TopNav'
+import {
+  IconDashboard,
+  IconServer,
+  IconRepo,
+  IconPackage,
+  IconBandage,
+  IconShield,
+  IconFileText,
+  IconDocker,
+  IconBot,
+  IconSettings,
+  IconLink,
+  IconChevronDown,
+  IconChevronRight,
+  IconChevronLeft,
+  IconPlus,
+  IconLogo,
+} from './components/Icons'
+
 import Dashboard from './pages/Dashboard'
 import Hosts from './pages/Hosts'
 import HostDetail from './pages/HostDetail'
@@ -25,98 +45,22 @@ export function useAuth() {
   return useContext(AuthContext)
 }
 
-interface NavChild {
-  to: string
-  label: string
-  end?: boolean
-}
-
-interface NavItem {
-  to: string
-  label: string
-  children?: NavChild[]
-  adminOnly?: boolean
-}
-
-interface NavSection {
-  title: string
-  items: NavItem[]
-}
-
-const NAV: NavSection[] = [
-  {
-    title: 'Assets',
-    items: [
-      { to: '/hosts', label: 'Hosts' },
-      { to: '/host-groups', label: 'Host Groups' },
-      { to: '/packages', label: 'Packages' },
-    ],
-  },
-  {
-    title: 'Operations',
-    items: [
-      {
-        to: '/patching',
-        label: 'Patching',
-        children: [
-          { to: '/patching', label: 'Patch Tree', end: true },
-          { to: '/integration', label: 'Integration' },
-          { to: '/automation-options', label: 'Automation Options' },
-        ],
-      },
-    ],
-  },
-  {
-    title: 'System',
-    items: [
-      { to: '/users', label: 'Users', adminOnly: true },
-    ],
-  },
-]
-
-function GroupNav({ section }: { section: NavSection }) {
-  const { user } = useAuth()
-  const location = useLocation()
-  const items = section.items.filter((i) => !i.adminOnly || user?.is_admin === 1)
-
-  return (
-    <div className="nav-group">
-      <div className="nav-group-title">{section.title}</div>
-      {items.map((item) => {
-        const active = item.to === '/' ? location.pathname === '/' : location.pathname.startsWith(item.to)
-        const childActive = item.children?.some((c) =>
-          c.end ? location.pathname === c.to : location.pathname.startsWith(c.to)) || active
-
-        if (!item.children) {
-          return (
-            <NavLink key={item.to} to={item.to} end={item.to === '/'} className="nav-item">
-              {item.label}
-            </NavLink>
-          )
-        }
-        return (
-          <div key={item.to} className={`nav-item nav-item-group ${childActive ? 'active' : ''}`}>
-            <div className="nav-item-label">
-              {item.label}
-              <span className="nav-caret">{childActive ? '▾' : '▸'}</span>
-            </div>
-            <div className="nav-sub">
-              {item.children.map((c) => (
-                <NavLink key={c.to} to={c.to} end={c.end} className="nav-subitem">
-                  {c.label}
-                </NavLink>
-              ))}
-            </div>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
 function Layout() {
   const { user, setUser } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+  const [collapsed, setCollapsed] = useState(false)
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
+    operations_patching: true,
+    operations_compliance: false,
+    operations_reporting: false,
+    operations_docker: false,
+    system_links: false,
+  })
+
+  const toggleGroup = (key: string) => {
+    setOpenGroups((prev) => ({ ...prev, [key]: !prev[key] }))
+  }
 
   const logout = async () => {
     await api.logout()
@@ -126,43 +70,230 @@ function Layout() {
 
   return (
     <div className="app-shell">
-      <aside className="sidebar">
-        <div className="brand">
-          <span className="brand-icon">🛠️</span>
-          <div>
-            <div className="brand-name">GPTA</div>
-            <div className="brand-sub">Gotta Patchem Them All</div>
-          </div>
+      <aside className={`sidebar ${collapsed ? 'collapsed' : ''}`}>
+        <div className="sidebar-header">
+          {!collapsed ? (
+            <NavLink to="/" className="brand-wrapper">
+              <IconLogo size={24} />
+              <span className="brand-name">PatchMon</span>
+            </NavLink>
+          ) : (
+            <NavLink to="/" className="brand-wrapper" title="PatchMon">
+              <IconLogo size={24} />
+            </NavLink>
+          )}
+          <button
+            type="button"
+            className="collapse-toggle"
+            onClick={() => setCollapsed(!collapsed)}
+            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {collapsed ? <IconChevronRight size={14} /> : <IconChevronLeft size={14} />}
+          </button>
         </div>
+
         <nav className="nav">
-          <NavLink to="/" end className="nav-item">Dashboard</NavLink>
-          {NAV.map((section) => <GroupNav key={section.title} section={section} />)}
-        </nav>
-        <div className="sidebar-footer">
-          <div className="user-chip">
-            <span className="user-avatar">{(user?.username || '?')[0].toUpperCase()}</span>
-            <div>
-              <div className="user-name">{user?.username}</div>
-              <div className="user-role">{user?.is_admin === 1 ? 'Administrator' : 'Viewer'}</div>
+          <NavLink to="/" end className="nav-item">
+            <span className="nav-icon"><IconDashboard size={18} /></span>
+            {!collapsed && <span className="nav-label">Dashboard</span>}
+          </NavLink>
+
+          {/* ASSETS SECTION */}
+          <div className="nav-group">
+            {!collapsed && <div className="nav-group-title">Assets</div>}
+            
+            <NavLink to="/hosts" className="nav-item">
+              <span className="nav-icon"><IconServer size={18} /></span>
+              {!collapsed && (
+                <>
+                  <span className="nav-label">Hosts</span>
+                  <div className="nav-badges">
+                    <span className="nav-badge-pill nav-badge-green">1</span>
+                    <span className="nav-badge-pill nav-badge-red">1</span>
+                    <button
+                      type="button"
+                      className="nav-quick-add"
+                      title="Add Host"
+                      onClick={(e) => {
+                        e.preventDefault()
+                        e.stopPropagation()
+                        navigate('/hosts')
+                      }}
+                    >
+                      <IconPlus size={11} />
+                    </button>
+                  </div>
+                </>
+              )}
+            </NavLink>
+
+            <NavLink to="/host-groups" className="nav-item">
+              <span className="nav-icon"><IconRepo size={18} /></span>
+              {!collapsed && <span className="nav-label">Repos</span>}
+            </NavLink>
+
+            <NavLink to="/packages" className="nav-item">
+              <span className="nav-icon"><IconPackage size={18} /></span>
+              {!collapsed && <span className="nav-label">Packages</span>}
+            </NavLink>
+          </div>
+
+          {/* OPERATIONS SECTION */}
+          <div className="nav-group">
+            {!collapsed && <div className="nav-group-title">Operations</div>}
+
+            {/* Patching dropdown */}
+            <div className={`nav-item-group ${location.pathname.startsWith('/patching') || location.pathname === '/integration' || location.pathname === '/automation-options' ? 'active' : ''}`}>
+              <div
+                className="nav-group-header"
+                onClick={() => {
+                  if (collapsed) {
+                    navigate('/patching')
+                  } else {
+                    toggleGroup('operations_patching')
+                  }
+                }}
+              >
+                <div className="flex" style={{ gap: 10 }}>
+                  <span className="nav-icon"><IconBandage size={18} /></span>
+                  {!collapsed && <span className="nav-label">Patching</span>}
+                </div>
+                {!collapsed && (
+                  <span className="nav-caret">
+                    {openGroups.operations_patching ? <IconChevronDown size={13} /> : <IconChevronRight size={13} />}
+                  </span>
+                )}
+              </div>
+
+              {!collapsed && openGroups.operations_patching && (
+                <div className="nav-sub">
+                  <NavLink to="/patching" end className="nav-subitem">
+                    Overview
+                  </NavLink>
+                  <NavLink to="/integration" className="nav-subitem">
+                    Runs & History
+                  </NavLink>
+                  <NavLink to="/automation-options" className="nav-subitem">
+                    Policies
+                  </NavLink>
+                </div>
+              )}
+            </div>
+
+            {/* Compliance */}
+            <div className="nav-item-group">
+              <div className="nav-group-header" onClick={() => toggleGroup('operations_compliance')}>
+                <div className="flex" style={{ gap: 10 }}>
+                  <span className="nav-icon"><IconShield size={18} /></span>
+                  {!collapsed && <span className="nav-label">Compliance</span>}
+                </div>
+                {!collapsed && (
+                  <span className="nav-caret">
+                    {openGroups.operations_compliance ? <IconChevronDown size={13} /> : <IconChevronRight size={13} />}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Reporting */}
+            <div className="nav-item-group">
+              <div className="nav-group-header" onClick={() => toggleGroup('operations_reporting')}>
+                <div className="flex" style={{ gap: 10 }}>
+                  <span className="nav-icon"><IconFileText size={18} /></span>
+                  {!collapsed && <span className="nav-label">Reporting</span>}
+                </div>
+                {!collapsed && (
+                  <span className="nav-caret">
+                    {openGroups.operations_reporting ? <IconChevronDown size={13} /> : <IconChevronRight size={13} />}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Docker (Beta) */}
+            <div className="nav-item-group">
+              <div className="nav-group-header" onClick={() => toggleGroup('operations_docker')}>
+                <div className="flex" style={{ gap: 10 }}>
+                  <span className="nav-icon"><IconDocker size={18} /></span>
+                  {!collapsed && (
+                    <>
+                      <span className="nav-label">Docker</span>
+                      <span className="nav-badge-pill nav-badge-beta">Beta</span>
+                    </>
+                  )}
+                </div>
+                {!collapsed && (
+                  <span className="nav-caret">
+                    {openGroups.operations_docker ? <IconChevronDown size={13} /> : <IconChevronRight size={13} />}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
-          <button className="btn btn-ghost btn-block" onClick={logout}>Sign out</button>
-        </div>
+
+          {/* SYSTEM SECTION */}
+          <div className="nav-group">
+            {!collapsed && <div className="nav-group-title">System</div>}
+
+            <NavLink to="/automation-options" className="nav-item">
+              <span className="nav-icon"><IconBot size={18} /></span>
+              {!collapsed && <span className="nav-label">Automation</span>}
+            </NavLink>
+
+            {user?.is_admin === 1 && (
+              <NavLink to="/users" className="nav-item">
+                <span className="nav-icon"><IconSettings size={18} /></span>
+                {!collapsed && <span className="nav-label">Settings</span>}
+              </NavLink>
+            )}
+
+            <div className="nav-item-group">
+              <div className="nav-group-header" onClick={() => toggleGroup('system_links')}>
+                <div className="flex" style={{ gap: 10 }}>
+                  <span className="nav-icon"><IconLink size={18} /></span>
+                  {!collapsed && <span className="nav-label">Links</span>}
+                </div>
+                {!collapsed && (
+                  <span className="nav-caret">
+                    {openGroups.system_links ? <IconChevronDown size={13} /> : <IconChevronRight size={13} />}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </nav>
+
+        {!collapsed && (
+          <div className="sidebar-footer">
+            <div className="user-chip">
+              <span className="user-avatar">{(user?.username || '?')[0].toUpperCase()}</span>
+              <div style={{ overflow: 'hidden' }}>
+                <div className="user-name">{user?.username}</div>
+                <div className="user-role">{user?.is_admin === 1 ? 'Administrator' : 'Viewer'}</div>
+              </div>
+            </div>
+            <button className="btn btn-ghost btn-block btn-sm" onClick={logout}>Sign out</button>
+          </div>
+        )}
       </aside>
-      <main className="content">
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/hosts" element={<Hosts />} />
-          <Route path="/hosts/:id" element={<HostDetail />} />
-          <Route path="/host-groups" element={<HostGroups />} />
-          <Route path="/patching" element={<Patching />} />
-          <Route path="/integration" element={<Integration />} />
-          <Route path="/packages" element={<Packages />} />
-          <Route path="/automation-options" element={<Policies />} />
-          {user?.is_admin === 1 && <Route path="/users" element={<Users />} />}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </main>
+
+      <div className="main-wrapper">
+        <TopNav />
+        <main className="content">
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/hosts" element={<Hosts />} />
+            <Route path="/hosts/:id" element={<HostDetail />} />
+            <Route path="/host-groups" element={<HostGroups />} />
+            <Route path="/patching" element={<Patching />} />
+            <Route path="/integration" element={<Integration />} />
+            <Route path="/packages" element={<Packages />} />
+            <Route path="/automation-options" element={<Policies />} />
+            {user?.is_admin === 1 && <Route path="/users" element={<Users />} />}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </main>
+      </div>
     </div>
   )
 }

@@ -2,9 +2,10 @@ import { useCallback, useEffect, useState } from 'react'
 import { api } from '../api'
 import { useAuth } from '../App'
 import type { AwxJob, AwxTemplate, ExecutionOption, Host, PatchRun } from '../types'
+import { IconPlay, IconPlus } from '../components/Icons'
 
 function HealthDot({ health }: { health: { success: boolean; version?: string; auth_mode?: string; connection_name?: string; connection_id?: number } | null }) {
-  if (!health) return <span className="badge badge-gray">Checking…</span>
+  if (!health) return <span className="badge badge-gray">Checking AWX status…</span>
   if (!health.success) return <span className="badge badge-red">AWX Unreachable</span>
   return (
     <span className="flex">
@@ -19,7 +20,7 @@ function HealthDot({ health }: { health: { success: boolean; version?: string; a
 function runTone(status: string) {
   const s = (status || '').toLowerCase()
   if (['successful', 'completed'].includes(s)) return 'badge-green'
-  if (['failed', 'canceled', 'cancelled'].includes(s)) return 'badge-red'
+  if (['failed', 'canceled', 'cancelled', 'error'].includes(s)) return 'badge-red'
   if (['running', 'pending'].includes(s)) return 'badge-amber'
   return 'badge-gray'
 }
@@ -70,12 +71,12 @@ export default function Integration() {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">Integration</h1>
-          <p className="page-sub">AWX orchestration & execution options</p>
+          <h1 className="page-title">Integration & Orchestration</h1>
+          <p className="page-sub">AWX / Tower connection, execution options, and job history</p>
         </div>
         {isAdmin && (
-          <button className="btn btn-primary" onClick={() => setShowTrigger(true)} disabled={!templates.length}>
-            ▶ Trigger Run
+          <button type="button" className="btn btn-primary" onClick={() => setShowTrigger(true)} disabled={!templates.length}>
+            <IconPlay size={14} /> Trigger Run
           </button>
         )}
       </div>
@@ -83,19 +84,25 @@ export default function Integration() {
       <div className="card mb flex flex-between">
         <div className="flex">
           <HealthDot health={health} />
-          {health?.success && <span className="muted">· {templates.length} job templates</span>}
+          {health?.success && <span className="muted">· {templates.length} job templates detected</span>}
         </div>
-        <button className="btn btn-sm" onClick={load}>Refresh</button>
+        <button type="button" className="btn btn-sm" onClick={load}>Refresh</button>
       </div>
 
       <div className="card mb">
         <div className="flex flex-between">
           <h2 className="card-title" style={{ margin: 0 }}>Execution Options</h2>
-          {isAdmin && <button className="btn btn-sm" onClick={() => { setEditingOption(null); setShowOption(true) }}>+ Add Option</button>}
+          {isAdmin && (
+            <button type="button" className="btn btn-sm btn-primary" onClick={() => { setEditingOption(null); setShowOption(true) }}>
+              <IconPlus size={13} /> Add Option
+            </button>
+          )}
         </div>
-        <p className="muted" style={{ marginTop: 6 }}>Save AWX endpoints (URL + basic/token auth) and pick which one runs. Provider field is ready for Jenkins later.</p>
+        <p className="muted" style={{ marginTop: 6, marginBottom: 16 }}>
+          Configure orchestration endpoints (URL + basic/token auth) and select the active execution engine.
+        </p>
         {options.length === 0 ? (
-          <p className="muted">No options saved.</p>
+          <p className="muted">No options configured yet.</p>
         ) : (
           <div className="table-wrap">
             <table>
@@ -105,29 +112,29 @@ export default function Integration() {
               <tbody>
                 {options.map((o) => (
                   <tr key={o.id}>
-                    <td style={{ fontWeight: 600 }}>{o.name}</td>
+                    <td style={{ fontWeight: 600, color: '#f1f5f9' }}>{o.name}</td>
                     <td><span className="badge badge-gray">{o.provider}</span></td>
                     <td className="mono muted">{o.url}</td>
                     <td>
                       {o.auth_mode === 'token'
                         ? <span className="badge badge-blue">Bearer Token</span>
-                        : <span className="badge badge-blue">Basic</span>}
+                        : <span className="badge badge-blue">Basic Auth</span>}
                     </td>
                     <td>{o.is_active === 1 ? <span className="badge badge-green">Active</span> : <span className="badge badge-gray">Inactive</span>}</td>
                     {isAdmin && (
                       <td className="text-right" style={{ whiteSpace: 'nowrap' }}>
                         {o.is_active !== 1 && (
-                          <button className="btn btn-sm" onClick={async () => {
+                          <button type="button" className="btn btn-sm" onClick={async () => {
                             await api.activateOption(o.id)
                             load()
                           }}>Activate</button>
                         )}{' '}
-                        <button className="btn btn-sm" onClick={async () => {
+                        <button type="button" className="btn btn-sm" onClick={async () => {
                           const res = await api.testOption(o.id)
                           setMessage(res.success ? `OK: ${o.name} — AWX v${res.version}` : `Test failed: ${o.name} — ${res.error}`)
                         }}>Test</button>{' '}
-                        <button className="btn btn-sm" onClick={() => { setEditingOption(o); setShowOption(true) }}>Edit</button>{' '}
-                        <button className="btn btn-sm btn-danger" onClick={async () => {
+                        <button type="button" className="btn btn-sm" onClick={() => { setEditingOption(o); setShowOption(true) }}>Edit</button>{' '}
+                        <button type="button" className="btn btn-sm btn-danger" onClick={async () => {
                           if (!window.confirm(`Delete option "${o.name}"?`)) return
                           await api.deleteOption(o.id)
                           load()
@@ -142,12 +149,12 @@ export default function Integration() {
         )}
       </div>
 
-      {message && <div className="login-error">{message}</div>}
+      {message && <div className="login-error" style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', borderColor: 'rgba(59, 130, 246, 0.4)' }}>{message}</div>}
 
       <div className="card mb">
         <h2 className="card-title">AWX Job Templates</h2>
         {templates.length === 0 ? (
-          <p className="muted">No templates available — is AWX reachable?</p>
+          <p className="muted">No templates available — please verify that AWX endpoint is configured and reachable.</p>
         ) : (
           <div className="table-wrap">
             <table>
@@ -157,9 +164,9 @@ export default function Integration() {
               <tbody>
                 {templates.map((t) => (
                   <tr key={t.id}>
-                    <td className="mono">{t.id}</td>
-                    <td>{t.name}</td>
-                    <td className="mono">{t.playbook}</td>
+                    <td className="mono muted">{t.id}</td>
+                    <td style={{ fontWeight: 600, color: '#f1f5f9' }}>{t.name}</td>
+                    <td className="mono muted">{t.playbook}</td>
                     <td><span className={`badge ${t.status === 'active' ? 'badge-green' : 'badge-gray'}`}>{t.status}</span></td>
                   </tr>
                 ))}
@@ -173,7 +180,7 @@ export default function Integration() {
         <div className="card">
           <h2 className="card-title">Recent Patch Runs</h2>
           {runs.length === 0 ? (
-            <p className="muted">No runs yet.</p>
+            <p className="muted">No runs executed yet.</p>
           ) : (
             <div className="table-wrap">
               <table>
@@ -183,7 +190,7 @@ export default function Integration() {
                 <tbody>
                   {runs.slice(0, 15).map((r) => (
                     <tr key={r.id}>
-                      <td className="mono">{r.run_id}</td>
+                      <td className="mono" style={{ color: '#60a5fa' }}>{r.run_id}</td>
                       <td>{r.template_name || '-'}</td>
                       <td><span className={`badge ${runTone(r.status)}`}>{r.status}</span></td>
                       <td>{r.host_count}</td>
@@ -199,7 +206,7 @@ export default function Integration() {
         <div className="card">
           <h2 className="card-title">AWX Jobs (auto-refresh 15s)</h2>
           {jobs.length === 0 ? (
-            <p className="muted">No jobs.</p>
+            <p className="muted">No jobs recorded.</p>
           ) : (
             <div className="table-wrap">
               <table>
@@ -209,8 +216,8 @@ export default function Integration() {
                 <tbody>
                   {jobs.slice(0, 15).map((j) => (
                     <tr key={j.id}>
-                      <td className="mono">{j.id}</td>
-                      <td>{j.name}</td>
+                      <td className="mono muted">{j.id}</td>
+                      <td style={{ fontWeight: 600, color: '#f1f5f9' }}>{j.name}</td>
                       <td><span className={`badge ${runTone(j.status)}`}>{j.status}</span></td>
                       <td className="muted">{(j.started || '').slice(0, 16).replace('T', ' ')}</td>
                     </tr>
@@ -299,13 +306,13 @@ function OptionModal({ option, onClose, onDone }: {
         <form onSubmit={submit}>
           <div className="form-row">
             <label>Name *</label>
-            <input required value={name} onChange={(e) => setName(e.target.value)} />
+            <input required value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Primary AWX" />
           </div>
           <div className="form-row">
             <label>Provider</label>
             <select value={provider} onChange={(e) => setProvider(e.target.value)}>
-              <option value="awx">AWX</option>
-              <option value="jenkins">Jenkins (future)</option>
+              <option value="awx">AWX / Ansible Automation Platform</option>
+              <option value="jenkins">Jenkins</option>
             </select>
           </div>
           <div className="form-row">
@@ -339,7 +346,7 @@ function OptionModal({ option, onClose, onDone }: {
           <div className="modal-actions">
             <button type="button" className="btn" onClick={onClose}>Cancel</button>
             <button type="submit" className="btn btn-primary" disabled={busy}>
-              {busy ? 'Saving…' : option ? 'Save' : 'Add'}
+              {busy ? 'Saving…' : option ? 'Save Changes' : 'Add Option'}
             </button>
           </div>
         </form>
@@ -397,17 +404,17 @@ function TriggerModal({ templates, hosts, onClose, onDone }: {
             </select>
           </div>
           <div className="form-row">
-            <label>Hosts (leave empty for all)</label>
-            <div style={{ maxHeight: 160, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 8, padding: 8 }}>
+            <label>Hosts (leave empty for all estate hosts)</label>
+            <div style={{ maxHeight: 160, overflowY: 'auto', border: '1px solid var(--border)', borderRadius: 6, padding: 8, background: 'var(--bg-input)' }}>
               {hosts.map((h) => (
-                <label key={h.id} className="flex" style={{ padding: '4px 0', cursor: 'pointer' }}>
+                <label key={h.id} className="flex" style={{ padding: '4px 0', cursor: 'pointer', fontSize: 13 }}>
                   <input
                     type="checkbox"
                     style={{ width: 'auto' }}
                     checked={selected.includes(h.id)}
                     onChange={() => toggle(h.id)}
                   />
-                  {h.hostname}
+                  <span>{h.friendly_name || h.hostname} <span className="muted mono">({h.ip_address || 'no IP'})</span></span>
                 </label>
               ))}
               {hosts.length === 0 && <span className="muted">No hosts registered.</span>}

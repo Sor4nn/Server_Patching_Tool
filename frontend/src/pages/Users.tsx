@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import type { User } from '../types'
+import { IconPlus } from '../components/Icons'
 
 export default function Users() {
   const [users, setUsers] = useState<User[]>([])
@@ -50,10 +51,12 @@ export default function Users() {
     <div>
       <div className="page-header">
         <div>
-          <h1 className="page-title">Users</h1>
-          <p className="page-sub">{users.length} users</p>
+          <h1 className="page-title">User Management</h1>
+          <p className="page-sub">{users.length} registered system users</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowCreate(true)}>+ New User</button>
+        <button type="button" className="btn btn-primary" onClick={() => setShowCreate(true)}>
+          <IconPlus size={14} /> New User
+        </button>
       </div>
 
       {error && <div className="login-error">{error}</div>}
@@ -69,7 +72,7 @@ export default function Users() {
             <tbody>
               {users.map((u) => (
                 <tr key={u.id}>
-                  <td>{u.username}</td>
+                  <td style={{ fontWeight: 600, color: '#f1f5f9' }}>{u.username}</td>
                   <td className="muted">{u.email || '-'}</td>
                   <td>
                     <span className={`badge ${u.is_admin === 1 ? 'badge-blue' : 'badge-gray'}`}>
@@ -83,13 +86,13 @@ export default function Users() {
                   </td>
                   <td className="muted">{u.last_login ? u.last_login.slice(0, 16).replace('T', ' ') : 'Never'}</td>
                   <td className="flex">
-                    <button className="btn btn-sm" onClick={() => toggleAdmin(u)}>
+                    <button type="button" className="btn btn-sm" onClick={() => toggleAdmin(u)}>
                       {u.is_admin === 1 ? 'Revoke Admin' : 'Make Admin'}
                     </button>
-                    <button className="btn btn-sm" onClick={() => toggleActive(u)}>
+                    <button type="button" className="btn btn-sm" onClick={() => toggleActive(u)}>
                       {u.is_active === 1 ? 'Disable' : 'Enable'}
                     </button>
-                    <button className="btn btn-sm btn-danger" onClick={() => remove(u)}>Delete</button>
+                    <button type="button" className="btn btn-sm btn-danger" onClick={() => remove(u)}>Delete</button>
                   </td>
                 </tr>
               ))}
@@ -126,7 +129,7 @@ function CreateUserModal({ onClose, onCreated }: { onClose: () => void; onCreate
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
-        <h3>New User</h3>
+        <h3>Create New User</h3>
         {error && <div className="login-error">{error}</div>}
         <form onSubmit={submit}>
           <div className="form-row">
@@ -149,7 +152,7 @@ function CreateUserModal({ onClose, onCreated }: { onClose: () => void; onCreate
           </div>
           <div className="modal-actions">
             <button type="button" className="btn" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={busy}>{busy ? 'Creating…' : 'Create'}</button>
+            <button type="submit" className="btn btn-primary" disabled={busy}>{busy ? 'Creating…' : 'Create User'}</button>
           </div>
         </form>
       </div>
