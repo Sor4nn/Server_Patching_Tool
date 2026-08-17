@@ -18,6 +18,7 @@ data/
 
 # Frontend build
 frontend/dist/
+frontend/tsconfig.tsbuildinfo
 
 # Local runtime artifacts
 user_files/
