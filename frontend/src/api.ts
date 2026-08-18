@@ -171,6 +171,13 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ host_ids: hostIds, service }),
     }),
+
+  securityReport: (params = '') => request<SecurityReport>(`/security/report${params}`),
+  securityReportCsv: async (params = '') => {
+    const response = await fetch(BASE + `/security/report.csv${params}`, { credentials: 'include' })
+    if (!response.ok) throw new Error(response.statusText)
+    return response.text()
+  },
 }
 
-import type { DashboardResponse, Host, HostGroup, PatchRun, User, AwxTemplate, AwxJob, HostPackage, PackageAggregate, PatchPolicy, ExecutionOption, PatchTreeNode, ButtonBinding, InventorySource, ExecutionEnvironment, Credential, JobTemplate, ServicesResponse, CriticalService } from './types'
+import type { DashboardResponse, Host, HostGroup, PatchRun, User, AwxTemplate, AwxJob, HostPackage, PackageAggregate, PatchPolicy, ExecutionOption, PatchTreeNode, ButtonBinding, InventorySource, ExecutionEnvironment, Credential, JobTemplate, SecurityReport, ServicesResponse, CriticalService } from './types'

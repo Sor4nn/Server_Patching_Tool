@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import config, database, scheduler
-from .routers import auth, awx_callbacks, credentials, dashboard, execution_environments, execution_options, host_groups, hosts, inventory_sources, packages, patching, patching_panel, policies, services, templates, terminal, users
+from .routers import auth, awx_callbacks, credentials, dashboard, execution_environments, execution_options, host_groups, hosts, inventory_sources, packages, patching, patching_panel, policies, security, services, templates, terminal, users
 
 database.init_db()
 scheduler.start_scheduler()
@@ -24,7 +24,7 @@ app.add_middleware(
 for r in (auth.router, dashboard.router, hosts.router, host_groups.router, users.router, patching.router,
           packages.router, policies.router, execution_options.router, patching_panel.router, awx_callbacks.router,
           inventory_sources.router, execution_environments.router, credentials.router, templates.router,
-          services.router, terminal.router):
+          services.router, terminal.router, security.router):
     app.include_router(r)
 
 

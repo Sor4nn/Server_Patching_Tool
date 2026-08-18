@@ -1,21 +1,19 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
-import { Navigate, NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
+import { Navigate, NavLink, Route, Routes, useNavigate } from 'react-router-dom'
 import { api } from './api'
 import type { User } from './types'
 import { TopNav } from './components/TopNav'
 import {
-  IconDashboard,
   IconServer,
   IconRepo,
   IconPackage,
-  IconBandage,
   IconShield,
-  IconFileText,
   IconDocker,
+  IconPlay,
+  IconBandage,
+  IconFileText,
   IconBot,
   IconSettings,
-  IconLink,
-  IconChevronDown,
   IconChevronRight,
   IconChevronLeft,
   IconPlus,
@@ -40,6 +38,7 @@ import Services from './pages/Services'
 import Automation from './pages/Automation'
 import Credentials from './pages/Credentials'
 import Templates from './pages/Templates'
+import SecurityReporting from './pages/SecurityReporting'
 import Login from './pages/Login'
 
 interface AuthCtx {
@@ -57,19 +56,7 @@ export function useAuth() {
 function Layout() {
   const { user, setUser } = useAuth()
   const navigate = useNavigate()
-  const location = useLocation()
   const [collapsed, setCollapsed] = useState(false)
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
-    operations_patching: true,
-    operations_compliance: false,
-    operations_reporting: false,
-    operations_docker: false,
-    system_links: false,
-  })
-
-  const toggleGroup = (key: string) => {
-    setOpenGroups((prev) => ({ ...prev, [key]: !prev[key] }))
-  }
 
   const logout = async () => {
     await api.logout()
@@ -102,15 +89,15 @@ function Layout() {
         </div>
 
         <nav className="nav">
-          <NavLink to="/" end className="nav-item">
-            <span className="nav-icon"><IconDashboard size={17} /></span>
-            {!collapsed && <span className="nav-label">Dashboard</span>}
+          <NavLink to="/security-reporting" className="nav-item">
+            <span className="nav-icon"><IconShield size={17} /></span>
+            {!collapsed && <span className="nav-label">Security Reporting</span>}
           </NavLink>
 
-          {/* ASSETS SECTION */}
+          {/* ASSETS */}
           <div className="nav-group">
             {!collapsed && <div className="nav-group-title">Assets</div>}
-            
+
             <NavLink to="/hosts" className="nav-item">
               <span className="nav-icon"><IconServer size={17} /></span>
               {!collapsed && (
@@ -150,77 +137,47 @@ function Layout() {
             </NavLink>
           </div>
 
-          {/* OPERATIONS SECTION */}
+          {/* RUN TEMPLATES */}
+          <div className="nav-group">
+            {!collapsed && <div className="nav-group-title">Run</div>}
+
+            <NavLink to="/templates" className="nav-item">
+              <span className="nav-icon"><IconPlay size={17} /></span>
+              {!collapsed && <span className="nav-label">Run Templates</span>}
+            </NavLink>
+
+            <NavLink to="/credentials" className="nav-item">
+              <span className="nav-icon"><IconFileText size={17} /></span>
+              {!collapsed && <span className="nav-label">Credentials</span>}
+            </NavLink>
+          </div>
+
+          {/* OPERATIONS */}
           <div className="nav-group">
             {!collapsed && <div className="nav-group-title">Operations</div>}
 
-            {/* Patching dropdown */}
-            <div className={`nav-item-group ${location.pathname.startsWith('/patching') || location.pathname === '/integration' || location.pathname === '/automation-options' ? 'active' : ''}`}>
-              <div
-                className="nav-group-header"
-                onClick={() => {
-                  if (collapsed) {
-                    navigate('/patching')
-                  } else {
-                    toggleGroup('operations_patching')
-                  }
-                }}
-              >
-                <div className="flex" style={{ gap: 9 }}>
-                  <span className="nav-icon"><IconBandage size={17} /></span>
-                  {!collapsed && <span className="nav-label">Patching</span>}
-                </div>
-                {!collapsed && (
-                  <span className="nav-caret">
-                    {openGroups.operations_patching ? <IconChevronDown size={12} /> : <IconChevronRight size={12} />}
-                  </span>
-                )}
-              </div>
+            <NavLink to="/patching" className="nav-item">
+              <span className="nav-icon"><IconBandage size={17} /></span>
+              {!collapsed && <span className="nav-label">Patching</span>}
+            </NavLink>
 
-              {!collapsed && openGroups.operations_patching && (
-                <div className="nav-sub">
-                  <NavLink to="/patching" end className="nav-subitem">
-                    Overview
-                  </NavLink>
-                  <NavLink to="/patching/run" className="nav-subitem">
-                    Run
-                  </NavLink>
-                  <NavLink to="/integration" className="nav-subitem">
-                    Runs & History
-                  </NavLink>
-                  <NavLink to="/automation-options" className="nav-subitem">
-                    Policies
-                  </NavLink>
-                  <NavLink to="/templates" className="nav-subitem">
-                    Templates
-                  </NavLink>
-                  <NavLink to="/credentials" className="nav-subitem">
-                    Credentials
-                  </NavLink>
-                </div>
-              )}
-            </div>
-
-            {/* Compliance */}
             <NavLink to="/compliance" className="nav-item">
               <span className="nav-icon"><IconShield size={17} /></span>
               {!collapsed && <span className="nav-label">Compliance</span>}
             </NavLink>
 
-            {/* Reporting */}
             <NavLink to="/reporting" className="nav-item">
               <span className="nav-icon"><IconFileText size={17} /></span>
               {!collapsed && <span className="nav-label">Reporting</span>}
             </NavLink>
 
-            {/* Services (systemd + disk) */}
             <NavLink to="/services" className="nav-item">
               <span className="nav-icon"><IconDocker size={17} /></span>
               {!collapsed && <span className="nav-label">Services</span>}
             </NavLink>
           </div>
 
-          {/* SYSTEM SECTION */}
+          {/* SYSTEM */}
           <div className="nav-group">
             {!collapsed && <div className="nav-group-title">System</div>}
 
@@ -233,20 +190,6 @@ function Layout() {
               <span className="nav-icon"><IconSettings size={17} /></span>
               {!collapsed && <span className="nav-label">Settings</span>}
             </NavLink>
-
-            <div className="nav-item-group">
-              <div className="nav-group-header" onClick={() => toggleGroup('system_links')}>
-                <div className="flex" style={{ gap: 9 }}>
-                  <span className="nav-icon"><IconLink size={17} /></span>
-                  {!collapsed && <span className="nav-label">Links</span>}
-                </div>
-                {!collapsed && (
-                  <span className="nav-caret">
-                    {openGroups.system_links ? <IconChevronDown size={12} /> : <IconChevronRight size={12} />}
-                  </span>
-                )}
-              </div>
-            </div>
           </div>
         </nav>
 
@@ -290,6 +233,7 @@ function Layout() {
             <Route path="/patching" element={<Patching />} />
             <Route path="/patching/run" element={<PatchingRun />} />
             <Route path="/integration" element={<Integration />} />
+            <Route path="/security-reporting" element={<SecurityReporting />} />
             <Route path="/packages" element={<Packages />} />
             <Route path="/automation-options" element={<Policies />} />
             <Route path="/compliance" element={<Compliance />} />
