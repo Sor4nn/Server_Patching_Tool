@@ -214,18 +214,52 @@ def update_packages(body: UpdatePackages):
         conn.close()
         return f"Host {body.hostname} not found"
     host_id = host["id"]
-    conn.execute("DELETE FROM host_packages WHERE host_id = %s", (host_id,))
     now = database.now_iso()
+
+    # A report that carries update info (check_updates.yml) refreshes the update
+    # status; an inventory-only report (collect_packages.yml) must NOT wipe the
+    # pending-update flags computed by a previous check.
+    reported = set()
     for pkg in body.packages:
-        conn.execute(
-            "INSERT INTO host_packages (host_id, name, version, release, arch, epoch, source, installed_at, created_at, "
-            "available_version, needs_update, is_security_update, category, cves) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
-            "ON CONFLICT (host_id, name, version, release, arch) DO NOTHING",
-            (host_id, pkg.name, pkg.version, pkg.release, pkg.arch, pkg.epoch, pkg.source, pkg.installed_at, now,
-             pkg.available_version, int(pkg.needs_update or 0), int(pkg.is_security_update or 0), pkg.category,
-             pkg.cves),
-        )
+        reported.add((pkg.name, pkg.version, pkg.release, pkg.arch))
+        has_update_info = any(v is not None for v in
+                              (pkg.available_version, pkg.needs_update, pkg.is_security_update, pkg.cves))
+        if has_update_info:
+            conn.execute(
+                "INSERT INTO host_packages (host_id, name, version, release, arch, epoch, source, installed_at, created_at, "
+                "available_version, needs_update, is_security_update, category, cves) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
+                "ON CONFLICT (host_id, name, version, release, arch) DO UPDATE SET "
+                "epoch = EXCLUDED.epoch, source = EXCLUDED.source, installed_at = EXCLUDED.installed_at, "
+                "available_version = EXCLUDED.available_version, needs_update = EXCLUDED.needs_update, "
+                "is_security_update = EXCLUDED.is_security_update, category = EXCLUDED.category, cves = EXCLUDED.cves",
+                (host_id, pkg.name, pkg.version, pkg.release, pkg.arch, pkg.epoch, pkg.source, pkg.installed_at, now,
+                 pkg.available_version, int(pkg.needs_update or 0), int(pkg.is_security_update or 0), pkg.category,
+                 pkg.cves),
+            )
+        else:
+            conn.execute(
+                "INSERT INTO host_packages (host_id, name, version, release, arch, epoch, source, installed_at, created_at, "
+                "available_version, needs_update, is_security_update, category, cves) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, NULL, 0, 0, %s, NULL) "
+                "ON CONFLICT (host_id, name, version, release, arch) DO UPDATE SET "
+                "epoch = EXCLUDED.epoch, source = EXCLUDED.source, installed_at = EXCLUDED.installed_at, "
+                "category = COALESCE(EXCLUDED.category, host_packages.category)",
+                (host_id, pkg.name, pkg.version, pkg.release, pkg.arch, pkg.epoch, pkg.source, pkg.installed_at, now,
+                 pkg.category),
+            )
+
+    # Drop rows for packages no longer installed on the host.
+    rows = conn.execute(
+        "SELECT name, version, release, arch FROM host_packages WHERE host_id = %s", (host_id,)).fetchall()
+    for r in rows:
+        key = (r["name"], r["version"], r["release"], r["arch"])
+        if key not in reported:
+            conn.execute(
+                "DELETE FROM host_packages WHERE host_id = %s AND name = %s AND version = %s AND release = %s AND arch = %s",
+                (host_id, r["name"], r["version"], r["release"], r["arch"]),
+            )
+
     conn.execute("UPDATE hosts SET updated_at = %s, last_seen = %s WHERE id = %s", (now, now, host_id))
     conn.commit()
     conn.close()
