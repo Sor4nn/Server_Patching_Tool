@@ -222,6 +222,7 @@ def update_packages(body: UpdatePackages):
     reported = set()
     for pkg in body.packages:
         reported.add((pkg.name, pkg.version, pkg.release, pkg.arch))
+        installed_at = database.normalize_installed_at(pkg.installed_at)
         has_update_info = any(v is not None for v in
                               (pkg.available_version, pkg.needs_update, pkg.is_security_update, pkg.cves))
         if has_update_info:
@@ -233,7 +234,7 @@ def update_packages(body: UpdatePackages):
                 "epoch = EXCLUDED.epoch, source = EXCLUDED.source, installed_at = EXCLUDED.installed_at, "
                 "available_version = EXCLUDED.available_version, needs_update = EXCLUDED.needs_update, "
                 "is_security_update = EXCLUDED.is_security_update, category = EXCLUDED.category, cves = EXCLUDED.cves",
-                (host_id, pkg.name, pkg.version, pkg.release, pkg.arch, pkg.epoch, pkg.source, pkg.installed_at, now,
+                (host_id, pkg.name, pkg.version, pkg.release, pkg.arch, pkg.epoch, pkg.source, installed_at, now,
                  pkg.available_version, int(pkg.needs_update or 0), int(pkg.is_security_update or 0), pkg.category,
                  pkg.cves),
             )
@@ -245,7 +246,7 @@ def update_packages(body: UpdatePackages):
                 "ON CONFLICT (host_id, name, version, release, arch) DO UPDATE SET "
                 "epoch = EXCLUDED.epoch, source = EXCLUDED.source, installed_at = EXCLUDED.installed_at, "
                 "category = COALESCE(EXCLUDED.category, host_packages.category)",
-                (host_id, pkg.name, pkg.version, pkg.release, pkg.arch, pkg.epoch, pkg.source, pkg.installed_at, now,
+                (host_id, pkg.name, pkg.version, pkg.release, pkg.arch, pkg.epoch, pkg.source, installed_at, now,
                  pkg.category),
             )
 

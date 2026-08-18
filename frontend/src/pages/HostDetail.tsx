@@ -6,6 +6,12 @@ import type { Host, HostGroup, HostPackage } from '../types'
 import { IconChevronLeft, IconSearch, IconTerminal } from '../components/Icons'
 import TerminalModal from '../components/TerminalModal'
 
+function fmtInstalled(v: string | null | undefined): string {
+  if (!v) return '-'
+  if (/^\d+$/.test(v)) return new Date(Number(v) * 1000).toLocaleString()
+  return v.slice(0, 19).replace('T', ' ')
+}
+
 export default function HostDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -188,7 +194,7 @@ export default function HostDetail() {
                     <td className="mono">{p.version || '-'}</td>
                     <td className="mono muted">{p.release || '-'}</td>
                     <td>{p.arch || '-'}</td>
-                    <td className="muted">{p.installed_at || '-'}</td>
+                    <td className="muted">{fmtInstalled(p.installed_at)}</td>
                   </tr>
                 ))}
               </tbody>

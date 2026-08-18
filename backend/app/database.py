@@ -326,6 +326,14 @@ def init_db():
     conn.execute("ALTER TABLE templates ADD COLUMN IF NOT EXISTS inventory_source_id INTEGER REFERENCES inventory_sources(id) ON DELETE CASCADE")
     conn.execute("ALTER TABLE host_packages ADD COLUMN IF NOT EXISTS cves TEXT")
     conn.execute("ALTER TABLE patch_runs ADD COLUMN IF NOT EXISTS output TEXT")
+
+    # Normalize legacy raw RPM install times (epoch seconds) stored as text.
+    conn.execute(
+        "UPDATE host_packages SET installed_at = "
+        "to_char(to_timestamp(installed_at::bigint) AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS\"Z\"') "
+        "WHERE installed_at ~ '^[0-9]+$' AND length(installed_at) <= 10 "
+        "AND installed_at::bigint BETWEEN 315532800 AND 4102444800"
+    )
     conn.commit()
 
     # Backfill package history baselines for hosts that have packages but no snapshot yet.
@@ -442,3 +450,20 @@ def delete_session(token: str):
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def normalize_installed_at(value: str | None) -> str | None:
+    """Convert an RPM install-time value to a UTC ISO timestamp.
+
+    rpm reports install time as epoch seconds; store it as a readable timestamp
+    instead of exposing the raw integer to the UI. ISO values pass through.
+    """
+    if value is None:
+        return None
+    v = str(value).strip()
+    if not v or not v.isdigit():
+        return v or None
+    try:
+        return datetime.fromtimestamp(int(v), timezone.utc).isoformat()
+    except (OverflowError, OSError, ValueError):
+        return None
