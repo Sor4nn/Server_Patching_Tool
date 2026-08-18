@@ -11,6 +11,7 @@ import {
   IconDocker,
   IconPlay,
   IconFileText,
+  IconClock,
   IconSettings,
   IconChevronRight,
   IconChevronLeft,
@@ -36,6 +37,7 @@ import Services from './pages/Services'
 import Automation from './pages/Automation'
 import Credentials from './pages/Credentials'
 import Templates from './pages/Templates'
+import Schedules from './pages/Schedules'
 import SecurityReporting from './pages/SecurityReporting'
 import Login from './pages/Login'
 
@@ -144,6 +146,11 @@ function Layout() {
               {!collapsed && <span className="nav-label">Run Templates</span>}
             </NavLink>
 
+            <NavLink to="/schedule" className="nav-item">
+              <span className="nav-icon"><IconClock size={17} /></span>
+              {!collapsed && <span className="nav-label">Schedule</span>}
+            </NavLink>
+
             <NavLink to="/credentials" className="nav-item">
               <span className="nav-icon"><IconFileText size={17} /></span>
               {!collapsed && <span className="nav-label">Credentials</span>}
@@ -197,6 +204,7 @@ function Layout() {
             <Route path="/inventory-sources" element={<Navigate to="/host-groups" replace />} />
             <Route path="/execution-environments" element={<ExecutionEnvironments />} />
             <Route path="/templates" element={<Templates />} />
+            <Route path="/schedule" element={<Schedules />} />
             <Route path="/credentials" element={<Credentials />} />
             <Route path="/patching" element={<Patching />} />
             <Route path="/patching/run" element={<PatchingRun />} />

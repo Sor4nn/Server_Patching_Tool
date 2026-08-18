@@ -162,11 +162,7 @@ export default function Hosts() {
                 <th>System Hostname ⇅</th>
                 <th>Group ⇅</th>
                 <th>OS ⇅</th>
-                <th>Agent Version ⇅</th>
-                <th>Agent Auto-Update</th>
                 <th>Connection</th>
-                <th>Integrations ⇅</th>
-                <th>Reporting ⇅</th>
                 <th>Reboot ⇅</th>
                 <th>Uptime ⇅</th>
                 <th>Updates ⇅</th>
@@ -203,12 +199,6 @@ export default function Hosts() {
                         <span>{h.os_make || 'Red Hat Enterprise Linux'}</span>
                       </span>
                     </td>
-                    <td className="mono muted">-</td>
-                    <td>
-                      <span className="flex muted" style={{ fontSize: 11 }}>
-                        No <span style={{ width: 14, height: 8, background: '#334155', borderRadius: 4, display: 'inline-block', marginLeft: 4 }} />
-                      </span>
-                    </td>
                     <td>
                       {reported ? (
                         <span className="badge badge-green flex" style={{ gap: 4 }}>
@@ -218,14 +208,6 @@ export default function Hosts() {
                         <span className="badge badge-gray flex" style={{ gap: 4 }}>
                           <IconWifi size={11} /> Unknown
                         </span>
-                      )}
-                    </td>
-                    <td className="mono muted">-</td>
-                    <td>
-                      {reported ? (
-                        <span className="badge badge-green">Reporting</span>
-                      ) : (
-                        <span className="badge badge-gray">Awaiting report</span>
                       )}
                     </td>
                     <td>
@@ -257,7 +239,7 @@ export default function Hosts() {
                 )
               })}
               {filtered.length === 0 && (
-                <tr><td colSpan={16} className="muted" style={{ textAlign: 'center', padding: 24 }}>No hosts found matching filter.</td></tr>
+                <tr><td colSpan={12} className="muted" style={{ textAlign: 'center', padding: 24 }}>No hosts found matching filter.</td></tr>
               )}
             </tbody>
           </table>
