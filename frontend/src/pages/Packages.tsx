@@ -6,31 +6,26 @@ import {
   IconSearch,
   IconRefresh,
 } from '../components/Icons'
+import SearchSelect from '../components/SearchSelect'
 
 export default function Packages() {
   const [packages, setPackages] = useState<PackageAggregate[]>([])
-  const [categories, setCategories] = useState<string[]>([])
   const [hosts, setHosts] = useState<Host[]>([])
-  const [category, setCategory] = useState('')
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('')
-  const [hostId, setHostId] = useState('')
+  const [hostId, setHostId] = useState<number | null>(null)
   const [selectedPackages, setSelectedPackages] = useState<number[]>([])
 
   const load = useCallback(async () => {
     const params = new URLSearchParams()
-    if (category) params.set('category', category)
     if (search) params.set('search', search)
     if (status) params.set('status', status)
-    if (hostId) params.set('host_id', hostId)
+    if (hostId !== null) params.set('host_id', String(hostId))
     const q = params.toString() ? `?${params.toString()}` : ''
-    const [res, cat] = await Promise.all([
-      api.listPackages(q).catch(() => ({ success: false, packages: [], total: 0, categories: [] })),
-      api.packageCategories().catch(() => ({ success: false, categories: [] })),
-    ])
+    const res = await api.listPackages(q)
+      .catch(() => ({ success: false, packages: [], total: 0, categories: [] }))
     setPackages(res.packages || [])
-    setCategories(cat.categories || [])
-  }, [category, search, status, hostId])
+  }, [search, status, hostId])
 
   useEffect(() => {
     load()
@@ -137,15 +132,6 @@ export default function Packages() {
 
         <div className="flex" style={{ gap: 8 }}>
           <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            style={{ width: 'auto', padding: '5px 10px', fontSize: 12 }}
-          >
-            <option value="">All Categories</option>
-            {categories.map((c) => <option key={c} value={c}>{c}</option>)}
-          </select>
-
-          <select
             value={status}
             onChange={(e) => setStatus(e.target.value)}
             style={{ width: 'auto', padding: '5px 10px', fontSize: 12 }}
@@ -156,16 +142,18 @@ export default function Packages() {
             <option value="security">Security Updates</option>
           </select>
 
-          <select
-            value={hostId}
-            onChange={(e) => setHostId(e.target.value)}
-            style={{ width: 'auto', padding: '5px 10px', fontSize: 12 }}
-          >
-            <option value="">All Hosts</option>
-            {hosts.map((h) => (
-              <option key={h.id} value={h.id}>{h.hostname}</option>
-            ))}
-          </select>
+          <SearchSelect
+            items={hosts.map((h) => ({
+              value: h.id,
+              label: h.friendly_name || h.hostname,
+              hint: h.friendly_name && h.hostname !== h.friendly_name ? h.hostname : undefined,
+            }))}
+            selected={hostId}
+            onSelect={setHostId}
+            placeholder="All Hosts — type to search…"
+            allLabel="All Hosts"
+            width={240}
+          />
         </div>
       </div>
 
