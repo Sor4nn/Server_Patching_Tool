@@ -8,7 +8,7 @@ Two-tier application:
 
 - **`backend/`** — FastAPI REST API (`/api/v1/*`): session auth, dashboard stats, hosts, host groups, users, packages, services, patching orchestration, policies, templates, credentials, execution environments, and the AWX-compatible callback paths. Also serves the built frontend in production.
 - **`frontend/`** — React + Vite + TypeScript SPA (dark sidebar layout): Dashboard, Hosts (+detail), Host Groups, Packages, Run Patching, Patching, Integration, Automation Options, Templates, Credentials, Exec Environments, Services, Compliance, Reporting, Settings.
-- **`ansible_scripts/`** — Playbooks consumed by the local runner (and importable into an AWX project): `collect_packages.yml`, `check_updates.yml`, `get_server_details.yml`, `check_services.yml`, `restart_service.yml`.
+- **`ansible_scripts/`** — Playbooks consumed by the local runner (and importable into an AWX project): `collect_packages.yml`.
 
 ## Execution model
 
