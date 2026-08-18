@@ -12,6 +12,7 @@ import {
   IconPlay,
   IconFileText,
   IconClock,
+  IconList,
   IconSettings,
   IconChevronRight,
   IconChevronLeft,
@@ -38,6 +39,7 @@ import Automation from './pages/Automation'
 import Credentials from './pages/Credentials'
 import Templates from './pages/Templates'
 import Schedules from './pages/Schedules'
+import PackageHistory from './pages/PackageHistory'
 import SecurityReporting from './pages/SecurityReporting'
 import Login from './pages/Login'
 
@@ -135,6 +137,11 @@ function Layout() {
               <span className="nav-icon"><IconPackage size={17} /></span>
               {!collapsed && <span className="nav-label">Packages</span>}
             </NavLink>
+
+            <NavLink to="/history" className="nav-item">
+              <span className="nav-icon"><IconList size={17} /></span>
+              {!collapsed && <span className="nav-label">Package History</span>}
+            </NavLink>
           </div>
 
           {/* RUN TEMPLATES */}
@@ -211,6 +218,7 @@ function Layout() {
             <Route path="/integration" element={<Integration />} />
             <Route path="/security-reporting" element={<SecurityReporting />} />
             <Route path="/packages" element={<Packages />} />
+            <Route path="/history" element={<PackageHistory />} />
             <Route path="/automation-options" element={<Policies />} />
             <Route path="/compliance" element={<Compliance />} />
             <Route path="/reporting" element={<Reporting />} />

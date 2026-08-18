@@ -108,6 +108,41 @@ export interface PackageHost {
   cves: string
 }
 
+export interface PackageSnapshot {
+  snapshot_id: number
+  host_id: number
+  hostname: string
+  friendly_name: string | null
+  captured_at: string
+  kind: string
+  package_count: number
+  changes: number
+}
+
+export interface PackageDiffItem {
+  name: string
+  version?: string
+  from?: string
+  to?: string
+  needs_update: boolean
+  is_security_update: boolean
+  from_needs_update?: boolean
+  to_needs_update?: boolean
+  from_security?: boolean
+  to_security?: boolean
+  cves: string
+}
+
+export interface PackageDiff {
+  success: boolean
+  from: { id: number; captured_at: string; kind: string }
+  to: { id: number; captured_at: string; kind: string }
+  summary: { added: number; removed: number; changed: number; security_to: number }
+  added: PackageDiffItem[]
+  removed: PackageDiffItem[]
+  changed: PackageDiffItem[]
+}
+
 export interface PackageAggregate {
   id: number
   name: string
