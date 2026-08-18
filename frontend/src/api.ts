@@ -147,6 +147,23 @@ export const api = {
   updateEnvironment: (id: number, body: Record<string, unknown>) =>
     request<{ success: boolean; environment: ExecutionEnvironment }>(`/execution-environment/${id}`, { method: 'PUT', body: JSON.stringify(body) }),
   deleteEnvironment: (id: number) => request<{ success: boolean }>(`/execution-environment/${id}`, { method: 'DELETE' }),
+
+  listServices: () => request<ServicesResponse>('/services'),
+  listServiceCatalog: () => request<{ success: boolean; services: CriticalService[] }>('/services/catalog'),
+  addServiceCatalog: (body: { name: string; description?: string }) =>
+    request<{ success: boolean; service: CriticalService }>('/services/catalog', { method: 'POST', body: JSON.stringify(body) }),
+  deleteServiceCatalog: (id: number) =>
+    request<{ success: boolean }>(`/services/catalog/${id}`, { method: 'DELETE' }),
+  refreshServices: (hostIds?: number[]) =>
+    request<{ success: boolean; run: PatchRun; error?: string }>('/services/refresh', {
+      method: 'POST',
+      body: JSON.stringify({ host_ids: hostIds }),
+    }),
+  restartService: (hostIds: number[], service: string) =>
+    request<{ success: boolean; run: PatchRun; error?: string }>('/services/restart', {
+      method: 'POST',
+      body: JSON.stringify({ host_ids: hostIds, service }),
+    }),
 }
 
-import type { DashboardResponse, Host, HostGroup, PatchRun, User, AwxTemplate, AwxJob, HostPackage, PackageAggregate, PatchPolicy, ExecutionOption, PatchTreeNode, ButtonBinding, InventorySource, ExecutionEnvironment, Credential, JobTemplate } from './types'
+import type { DashboardResponse, Host, HostGroup, PatchRun, User, AwxTemplate, AwxJob, HostPackage, PackageAggregate, PatchPolicy, ExecutionOption, PatchTreeNode, ButtonBinding, InventorySource, ExecutionEnvironment, Credential, JobTemplate, ServicesResponse, CriticalService } from './types'

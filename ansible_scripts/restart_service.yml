@@ -1,0 +1,34 @@
+- name: Restart a systemd service on target hosts
+  hosts: "{{ host_group }}"
+  gather_facts: false
+  strategy: free
+  vars:
+    target_service: ""
+  tasks:
+    - name: Restart the requested service
+      command: "systemctl restart {{ target_service }}"
+      become: yes
+      register: restart_result
+      ignore_errors: yes
+
+    - name: Capture post-restart status
+      command: "systemctl show {{ target_service }} -p LoadState,ActiveState,SubState --value"
+      become: yes
+      register: status_after
+      ignore_errors: yes
+
+    - name: Report restart result to GPTA
+      environment:
+        no_proxy: localhost,127.0.0.1
+      uri:
+        url: "{{ server_endpoints_app | default('http://localhost:61008') }}/updateservices"
+        method: POST
+        body: {
+                "hostname": "{{ inventory_hostname }}",
+                "services": [{"service_name": "{{ target_service }}", "load_state": "{{ (status_after.stdout.splitlines() + ['','',''])[:3][0] }}", "active_state": "{{ (status_after.stdout.splitlines() + ['','',''])[:3][1] }}", "sub_state": "{{ (status_after.stdout.splitlines() + ['','',''])[:3][2] }}", "restart_rc": "{{ restart_result.rc }}"}],
+                "filesystems": [],
+                "critical_names": ["{{ target_service }}"]
+                }
+        body_format: json
+        return_content: yes
+      delegate_to: 127.0.0.1

@@ -210,6 +210,41 @@ CREATE TABLE IF NOT EXISTS templates (
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS critical_services (
+    id SERIAL PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    description TEXT,
+    created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS host_services (
+    id SERIAL PRIMARY KEY,
+    host_id INTEGER NOT NULL REFERENCES hosts(id) ON DELETE CASCADE,
+    service_name TEXT NOT NULL,
+    load_state TEXT,      -- loaded|not-found|masked|error
+    active_state TEXT,    -- active|inactive|failed|activating|deactivating
+    sub_state TEXT,       -- running|dead|exited|failed
+    is_critical INTEGER NOT NULL DEFAULT 0,
+    last_checked TEXT,
+    UNIQUE(host_id, service_name)
+);
+CREATE INDEX IF NOT EXISTS idx_host_services_host ON host_services(host_id);
+
+CREATE TABLE IF NOT EXISTS host_filesystems (
+    id SERIAL PRIMARY KEY,
+    host_id INTEGER NOT NULL REFERENCES hosts(id) ON DELETE CASCADE,
+    mount TEXT NOT NULL,
+    device TEXT,
+    fs_type TEXT,
+    size_kb BIGINT,
+    used_kb BIGINT,
+    avail_kb BIGINT,
+    use_pct INTEGER,
+    last_checked TEXT,
+    UNIQUE(host_id, mount)
+);
+CREATE INDEX IF NOT EXISTS idx_host_filesystems_host ON host_filesystems(host_id);
 """
 
 
@@ -247,6 +282,18 @@ def init_db():
         conn.commit()
     elif not row["is_admin"]:
         conn.execute("UPDATE users SET is_admin = 1 WHERE id = %s", (row["id"],))
+        conn.commit()
+
+    # Seed critical services catalog
+    if not conn.execute("SELECT COUNT(*) AS c FROM critical_services").fetchone()["c"]:
+        now_iso = datetime.now(timezone.utc).isoformat()
+        for name in ("sshd", "systemd-journald", "chronyd", "firewalld",
+                     "NetworkManager", "crond", "rsyslog", "dnf-automatic"):
+            conn.execute(
+                "INSERT INTO critical_services (name, created_at) VALUES (%s, %s) "
+                "ON CONFLICT (name) DO NOTHING",
+                (name, now_iso),
+            )
         conn.commit()
 
     # Seed an execution option from env so existing installs keep working out of the box

@@ -1,0 +1,74 @@
+- name: Collect critical systemd service status and filesystem usage
+  hosts: "{{ host_group }}"
+  gather_facts: false
+  strategy: free
+  vars:
+    critical_services: []
+  tasks:
+    - name: Query systemd service status for critical services
+      command: >-
+        python3 -c "import subprocess, json, shlex
+        svcs = {{ critical_services | to_json }}
+        out = []
+        for s in svcs:
+            try:
+                txt = subprocess.check_output(['systemctl', 'show', s, '-p', 'LoadState,ActiveState,SubState', '--value'], stderr=subprocess.DEVNULL, text=True)
+                parts = txt.strip().splitlines()
+                ls, as_, ss = (parts + ['','',''])[:3]
+            except Exception:
+                ls, as_, ss = 'error', 'unknown', 'unknown'
+            out.append({'service_name': s, 'load_state': ls, 'active_state': as_, 'sub_state': ss})
+        print(json.dumps(out))"
+      become: yes
+      register: services_json
+      ignore_errors: yes
+
+    - name: Collect filesystem usage (df)
+      command: >-
+        python3 -c "import subprocess, json
+        out = []
+        try:
+            lines = subprocess.check_output(['df', '-P', '-k'], stderr=subprocess.DEVNULL, text=True).splitlines()[1:]
+        except Exception:
+            lines = []
+        for line in lines:
+            p = line.split()
+            if len(p) < 6:
+                continue
+            device, size, used, avail, usep, mount = p[0], p[1], p[2], p[3], p[4], p[5]
+            try:
+                use_int = int(usep.rstrip('%'))
+            except Exception:
+                use_int = 0
+            out.append({'mount': mount, 'device': device, 'fs_type': '', 'size_kb': int(size), 'used_kb': int(used), 'avail_kb': int(avail), 'use_pct': use_int})
+        print(json.dumps(out))"
+      become: yes
+      register: fs_json
+      ignore_errors: yes
+
+    - name: Set service list
+      set_fact:
+        services_list: "{{ services_json.stdout | from_json }}"
+      when: services_json is succeeded and services_json.stdout is defined and services_json.stdout | length > 0
+
+    - name: Set filesystem list
+      set_fact:
+        fs_list: "{{ fs_json.stdout | from_json }}"
+      when: fs_json is succeeded and fs_json.stdout is defined and fs_json.stdout | length > 0
+
+    - name: Report services and filesystems to GPTA
+      environment:
+        no_proxy: localhost,127.0.0.1
+      uri:
+        url: "{{ server_endpoints_app | default('http://localhost:61008') }}/updateservices"
+        method: POST
+        body: {
+                "hostname": "{{ inventory_hostname }}",
+                "services": "{{ services_list | default([]) }}",
+                "filesystems": "{{ fs_list | default([]) }}",
+                "critical_names": "{{ critical_services }}"
+                }
+        body_format: json
+        return_content: yes
+      delegate_to: 127.0.0.1
+      when: services_list is defined or fs_list is defined

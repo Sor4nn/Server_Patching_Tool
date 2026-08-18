@@ -277,3 +277,73 @@ export interface InventorySource {
   host_count?: number
   template_count?: number
 }
+
+export interface HostService {
+  service_name: string
+  load_state: string | null
+  active_state: string | null
+  sub_state: string | null
+  is_critical: boolean
+  last_checked: string | null
+  healthy: boolean
+}
+
+export interface HostFilesystem {
+  mount: string
+  device: string | null
+  fs_type: string | null
+  size_kb: number | null
+  used_kb: number | null
+  avail_kb: number | null
+  use_pct: number | null
+  last_checked: string | null
+}
+
+export interface CriticalService {
+  id: number
+  name: string
+  description: string | null
+  created_at: string
+}
+
+export interface ServiceHostSummary {
+  services_total: number
+  services_active: number
+  services_failed: number
+  critical_total: number
+  critical_failed: number
+  fs_total: number
+  fs_max_use: number
+  fs_over_threshold: number
+  last_checked: string | null
+}
+
+export interface ServiceHost {
+  id: number
+  hostname: string
+  ip_address: string | null
+  friendly_name: string | null
+  os_make: string | null
+  os_version: string | null
+  state: string | null
+  group_id: number | null
+  group_name: string | null
+  last_seen: string | null
+  services: HostService[]
+  filesystems: HostFilesystem[]
+  summary: ServiceHostSummary
+}
+
+export interface ServicesResponse {
+  success: boolean
+  hosts: ServiceHost[]
+  catalog: string[]
+  totals: {
+    hosts: number
+    services: number
+    failed: number
+    critical: number
+    critical_failed: number
+    fs_over_threshold: number
+  }
+}

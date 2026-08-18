@@ -34,7 +34,7 @@ import Policies from './pages/Policies'
 import Settings from './pages/Settings'
 import Compliance from './pages/Compliance'
 import Reporting from './pages/Reporting'
-import Docker from './pages/Docker'
+import Services from './pages/Services'
 import Automation from './pages/Automation'
 import Credentials from './pages/Credentials'
 import Templates from './pages/Templates'
@@ -208,15 +208,10 @@ function Layout() {
               {!collapsed && <span className="nav-label">Reporting</span>}
             </NavLink>
 
-            {/* Docker (Beta) */}
-            <NavLink to="/docker" className="nav-item">
+            {/* Services (systemd + disk) */}
+            <NavLink to="/services" className="nav-item">
               <span className="nav-icon"><IconDocker size={17} /></span>
-              {!collapsed && (
-                <>
-                  <span className="nav-label">Docker</span>
-                  <span className="nav-badge-pill nav-badge-beta">Beta</span>
-                </>
-              )}
+              {!collapsed && <span className="nav-label">Services</span>}
             </NavLink>
           </div>
 
@@ -291,7 +286,8 @@ function Layout() {
             <Route path="/automation-options" element={<Policies />} />
             <Route path="/compliance" element={<Compliance />} />
             <Route path="/reporting" element={<Reporting />} />
-            <Route path="/docker" element={<Docker />} />
+            <Route path="/docker" element={<Navigate to="/services" replace />} />
+            <Route path="/services" element={<Services />} />
             <Route path="/automation" element={<Automation />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/users" element={<Navigate to="/settings" replace />} />

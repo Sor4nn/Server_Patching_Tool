@@ -34,6 +34,8 @@ PLAYBOOK_BY_RUN_TYPE = {
     "snapshot": "onepatch_execution.yml",
     "check_updates": "check_updates.yml",
     "collect_packages": "collect_packages.yml",
+    "check_services": "check_services.yml",
+    "restart_service": "restart_service.yml",
 }
 
 

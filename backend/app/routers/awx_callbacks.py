@@ -79,6 +79,31 @@ class UpdatePackages(BaseModel):
     packages: list[PackageInfo]
 
 
+class ServiceStatus(BaseModel):
+    service_name: str
+    load_state: Optional[str] = None
+    active_state: Optional[str] = None
+    sub_state: Optional[str] = None
+    restart_rc: Optional[int] = None
+
+
+class FilesystemUsage(BaseModel):
+    mount: str
+    device: Optional[str] = None
+    fs_type: Optional[str] = None
+    size_kb: Optional[int] = None
+    used_kb: Optional[int] = None
+    avail_kb: Optional[int] = None
+    use_pct: Optional[int] = None
+
+
+class UpdateServices(BaseModel):
+    hostname: str
+    services: list[ServiceStatus] = []
+    filesystems: list[FilesystemUsage] = []
+    critical_names: list[str] = []
+
+
 @router.post("/generate_runid")
 def generate_runid(body: GenerateRunId):
     now = datetime.now(timezone.utc)
@@ -203,3 +228,46 @@ def update_packages(body: UpdatePackages):
     conn.commit()
     conn.close()
     return f"Updated {len(body.packages)} packages for {body.hostname}"
+
+
+@router.post("/updateservices")
+def update_services(body: UpdateServices):
+    conn = database.get_connection()
+    host = conn.execute("SELECT id FROM hosts WHERE hostname = %s", (body.hostname,)).fetchone()
+    if not host:
+        conn.close()
+        return f"Host {body.hostname} not found"
+    host_id = host["id"]
+    now = database.now_iso()
+    critical_set = {n for n in body.critical_names if n}
+
+    if body.services:
+        conn.execute("DELETE FROM host_services WHERE host_id = %s", (host_id,))
+        for svc in body.services:
+            conn.execute(
+                "INSERT INTO host_services (host_id, service_name, load_state, active_state, sub_state, is_critical, last_checked) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s) "
+                "ON CONFLICT (host_id, service_name) DO UPDATE SET "
+                "load_state = EXCLUDED.load_state, active_state = EXCLUDED.active_state, "
+                "sub_state = EXCLUDED.sub_state, is_critical = EXCLUDED.is_critical, last_checked = EXCLUDED.last_checked",
+                (host_id, svc.service_name, svc.load_state, svc.active_state, svc.sub_state,
+                 int(svc.service_name in critical_set), now),
+            )
+
+    if body.filesystems:
+        conn.execute("DELETE FROM host_filesystems WHERE host_id = %s", (host_id,))
+        for fs in body.filesystems:
+            conn.execute(
+                "INSERT INTO host_filesystems (host_id, mount, device, fs_type, size_kb, used_kb, avail_kb, use_pct, last_checked) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s) "
+                "ON CONFLICT (host_id, mount) DO UPDATE SET "
+                "device = EXCLUDED.device, fs_type = EXCLUDED.fs_type, size_kb = EXCLUDED.size_kb, "
+                "used_kb = EXCLUDED.used_kb, avail_kb = EXCLUDED.avail_kb, use_pct = EXCLUDED.use_pct, "
+                "last_checked = EXCLUDED.last_checked",
+                (host_id, fs.mount, fs.device, fs.fs_type, fs.size_kb, fs.used_kb, fs.avail_kb, fs.use_pct, now),
+            )
+
+    conn.execute("UPDATE hosts SET updated_at = %s, last_seen = %s WHERE id = %s", (now, now, host_id))
+    conn.commit()
+    conn.close()
+    return {"services": len(body.services), "filesystems": len(body.filesystems), "host": body.hostname}
