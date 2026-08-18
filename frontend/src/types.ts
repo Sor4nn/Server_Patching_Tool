@@ -259,6 +259,7 @@ export interface ExecutionEnvironment {
 export interface InventorySource {
   id: number
   name: string
+  description: string | null
   repo_url: string
   branch: string
   auth_type: 'none' | 'token' | 'ssh' | 'userpass'

@@ -118,10 +118,16 @@ def _parse_ini(text: str) -> dict[str, dict]:
 
 
 def _parse_yaml(text: str) -> dict[str, dict]:
-    """Parse YAML inventory into {group: {hostname: vars}}."""
+    """Parse YAML inventory into {group: {hostname: vars}}.
+
+    Returns {} for non-inventory YAML (e.g. playbooks, which are top-level
+    lists) so they are silently skipped during inventory reconciliation.
+    """
     try:
         data = yaml.safe_load(text)
     except yaml.YAMLError:
+        return {}
+    if not isinstance(data, dict):
         return {}
     groups: dict[str, dict[str, dict]] = {}
 
@@ -135,8 +141,10 @@ def _parse_yaml(text: str) -> dict[str, dict]:
         for child, child_node in node.get("children", {}).items():
             walk(child_node, str(child))
 
-    walk(data.get("all", data), "ungrouped" if "all" not in data else "all")
-    # Flatten: a host listed under a children group also needs a parent entry.
+    root = data.get("all", data)
+    if not isinstance(root, dict):
+        return {}
+    walk(root, "all" if "all" in data else "ungrouped")
     return groups
 
 

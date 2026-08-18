@@ -1,18 +1,18 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import { useAuth } from '../App'
 import type { HostGroup, InventorySource } from '../types'
-import { IconPlus, IconRefresh, IconTrash } from '../components/Icons'
-import CreateSourceModal from '../components/CreateSourceModal'
+import { IconPlus, IconRefresh, IconTrash, IconEdit } from '../components/Icons'
 
 export default function HostGroups() {
   const { user } = useAuth()
   const isAdmin = user?.is_admin === 1
+  const navigate = useNavigate()
   const [groups, setGroups] = useState<HostGroup[]>([])
   const [sources, setSources] = useState<InventorySource[]>([])
   const [error, setError] = useState('')
   const [syncing, setSyncing] = useState<number | null>(null)
-  const [showRepoModal, setShowRepoModal] = useState(false)
   const [showGroupModal, setShowGroupModal] = useState(false)
 
   const load = async () => {
@@ -69,7 +69,7 @@ export default function HostGroups() {
           <p className="page-sub">{sources.length} repositories · {groups.length} host groups</p>
         </div>
         {isAdmin && (
-          <button type="button" className="btn btn-primary" onClick={() => setShowRepoModal(true)}>
+          <button type="button" className="btn btn-primary" onClick={() => navigate('/repositories/new')}>
             <IconPlus size={14} /> New Repository
           </button>
         )}
@@ -105,6 +105,14 @@ export default function HostGroups() {
                   </td>
                   {isAdmin && (
                     <td className="text-right">
+                      <button
+                        type="button"
+                        className="btn btn-sm"
+                        onClick={() => navigate(`/repositories/${s.id}/edit`)}
+                        title="Edit"
+                      >
+                        <IconEdit size={13} />
+                      </button>
                       <button
                         type="button"
                         className="btn btn-sm"
@@ -169,7 +177,6 @@ export default function HostGroups() {
         </div>
       </div>
 
-      {showRepoModal && <CreateSourceModal onClose={() => setShowRepoModal(false)} onCreated={load} />}
       {showGroupModal && <CreateGroupModal onClose={() => setShowGroupModal(false)} onCreated={load} />}
     </div>
   )

@@ -19,6 +19,7 @@ def _source_to_dict(row) -> dict:
 
 class SourceCreate(BaseModel):
     name: str
+    description: Optional[str] = None
     repo_url: str
     branch: str = "main"
     auth_type: str = "none"  # none | token | ssh | userpass
@@ -33,6 +34,7 @@ class SourceCreate(BaseModel):
 
 class SourceUpdate(BaseModel):
     name: Optional[str] = None
+    description: Optional[str] = None
     repo_url: Optional[str] = None
     branch: Optional[str] = None
     auth_type: Optional[str] = None
@@ -90,10 +92,10 @@ def create_source(body: SourceCreate, _user: dict = Depends(require_admin)):
     now = database.now_iso()
     try:
         cur = conn.execute(
-            "INSERT INTO inventory_sources (name, repo_url, branch, auth_type, username, password, token, "
+            "INSERT INTO inventory_sources (name, description, repo_url, branch, auth_type, username, password, token, "
             "file_pattern, playbook_pattern, prune_missing, enabled, created_at, updated_at) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
-            (body.name.strip(), body.repo_url.strip(), body.branch or "main", body.auth_type,
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+            (body.name.strip(), body.description, body.repo_url.strip(), body.branch or "main", body.auth_type,
              body.username, body.password, body.token,
              body.file_pattern, body.playbook_pattern, int(body.prune_missing), int(body.enabled), now, now),
         )
@@ -116,7 +118,7 @@ def update_source(source_id: int, body: SourceUpdate, _user: dict = Depends(requ
         conn.close()
         raise HTTPException(status_code=404, detail="Source not found")
     sets, params = [], []
-    for field in ("name", "repo_url", "branch", "auth_type", "username", "password", "token", "file_pattern", "playbook_pattern"):
+    for field in ("name", "description", "repo_url", "branch", "auth_type", "username", "password", "token", "file_pattern", "playbook_pattern"):
         val = getattr(body, field)
         if val is not None:
             sets.append(f"{field} = %s")

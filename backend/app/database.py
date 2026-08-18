@@ -167,6 +167,7 @@ CREATE TABLE IF NOT EXISTS execution_environments (
 CREATE TABLE IF NOT EXISTS inventory_sources (
     id SERIAL PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
+    description TEXT,
     repo_url TEXT NOT NULL,
     branch TEXT NOT NULL DEFAULT 'main',
     auth_type TEXT NOT NULL DEFAULT 'none',  -- none | token | ssh | userpass
@@ -261,6 +262,7 @@ def init_db():
 
     # Migrations for existing databases
     conn.execute("ALTER TABLE execution_options ADD COLUMN IF NOT EXISTS branch TEXT")
+    conn.execute("ALTER TABLE inventory_sources ADD COLUMN IF NOT EXISTS description TEXT")
     conn.execute("ALTER TABLE inventory_sources ADD COLUMN IF NOT EXISTS playbook_pattern TEXT NOT NULL DEFAULT 'ansible_scripts/*.yml'")
     conn.execute("ALTER TABLE templates ADD COLUMN IF NOT EXISTS inventory_source_id INTEGER REFERENCES inventory_sources(id) ON DELETE CASCADE")
     conn.commit()

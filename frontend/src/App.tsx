@@ -26,6 +26,7 @@ import Dashboard from './pages/Dashboard'
 import Hosts from './pages/Hosts'
 import HostDetail from './pages/HostDetail'
 import HostGroups from './pages/HostGroups'
+import RepoForm from './pages/RepoForm'
 import ExecutionEnvironments from './pages/ExecutionEnvironments'
 import Integration from './pages/Integration'
 import Patching from './pages/Patching'
@@ -276,6 +277,8 @@ function Layout() {
             <Route path="/hosts" element={<Hosts />} />
             <Route path="/hosts/:id" element={<HostDetail />} />
             <Route path="/host-groups" element={<HostGroups />} />
+            <Route path="/repositories/new" element={<RepoForm />} />
+            <Route path="/repositories/:id/edit" element={<RepoForm />} />
             <Route path="/inventory-sources" element={<Navigate to="/host-groups" replace />} />
             <Route path="/execution-environments" element={<ExecutionEnvironments />} />
             <Route path="/templates" element={<Templates />} />

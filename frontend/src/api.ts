@@ -114,6 +114,7 @@ export const api = {
     }),
 
   listSources: () => request<{ success: boolean; sources: InventorySource[] }>('/inventory-sources'),
+  getSource: (id: number) => request<{ success: boolean; source: InventorySource }>(`/inventory-sources/${id}`),
   createSource: (body: Record<string, unknown>) =>
     request<{ success: boolean; source: InventorySource }>('/inventory-sources', { method: 'POST', body: JSON.stringify(body) }),
   updateSource: (id: number, body: Record<string, unknown>) =>
