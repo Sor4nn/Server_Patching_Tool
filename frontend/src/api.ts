@@ -80,6 +80,7 @@ export const api = {
 
   listPackages: (params = '') => request<{ success: boolean; packages: PackageAggregate[]; total: number; categories: { name: string }[] }>(`/packages${params}`),
   packageCategories: () => request<{ success: boolean; categories: string[] }>('/packages/categories'),
+  uniquePackagesReport: () => request<UniquePackagesReport>('/packages/report/unique'),
   packageHistory: (hostId: number | null, limit = 200) => {
     const q = new URLSearchParams({ limit: String(limit) })
     if (hostId) q.set('host_id', String(hostId))
@@ -187,4 +188,4 @@ export const api = {
   },
 }
 
-import type { DashboardResponse, Host, HostGroup, PatchRun, User, AwxTemplate, AwxJob, HostPackage, PackageAggregate, PackageSnapshot, PackageDiff, PatchPolicy, ExecutionOption, PatchTreeNode, ButtonBinding, InventorySource, ExecutionEnvironment, Credential, JobTemplate, SecurityReport, ServicesResponse, CriticalService } from './types'
+import type { DashboardResponse, Host, HostGroup, PatchRun, User, AwxTemplate, AwxJob, HostPackage, PackageAggregate, PackageSnapshot, PackageDiff, PatchPolicy, ExecutionOption, PatchTreeNode, ButtonBinding, InventorySource, ExecutionEnvironment, Credential, JobTemplate, SecurityReport, ServicesResponse, CriticalService, UniquePackagesReport } from './types'

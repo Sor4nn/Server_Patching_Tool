@@ -154,6 +154,31 @@ export interface PackageAggregate {
   sourceRepos: { repoId: number; repoName: string; repoUrl: string; repoType: string }[]
 }
 
+export interface UniquePackage {
+  name: string
+  version: string
+  category: string | null
+  needs_update: boolean
+  is_security_update: boolean
+  cves: string
+  host: { id: number; hostname: string; friendly_name: string | null }
+}
+
+export interface UniquePackageGroup {
+  os_make: string
+  os_version: string
+  hosts: number
+  count: number
+  packages: UniquePackage[]
+}
+
+export interface UniquePackagesReport {
+  success: boolean
+  generated_at: string
+  groups: UniquePackageGroup[]
+  total: number
+}
+
 export interface PatchPolicy {
   id: number
   name: string

@@ -89,6 +89,71 @@ def list_categories(_user: dict = Depends(current_user)):
     return {"success": True, "categories": rows}
 
 
+@router.get("/report/unique")
+def unique_packages_report(_user: dict = Depends(current_user)):
+    """Dedicated report: packages installed on exactly one host of an OS fleet.
+
+    Packages that re-occur (present on more than one host of the same OS,
+    including packages installed on every host) are excluded; only packages
+    present on a single host are listed.
+    """
+    conn = database.get_connection()
+    rows = conn.execute("""
+        SELECT p.name, p.version, p.release, p.arch, p.epoch, p.available_version,
+               p.needs_update, p.is_security_update, p.cves, p.category,
+               h.id AS host_id, h.hostname, h.friendly_name, h.os_make, h.os_version
+        FROM host_packages p JOIN hosts h ON h.id = p.host_id
+        WHERE h.os_make IS NOT NULL AND h.os_version IS NOT NULL
+        ORDER BY h.os_make, h.os_version, p.name
+    """).fetchall()
+
+    groups: dict[tuple, dict] = {}
+    for r in rows:
+        key = (r["os_make"], r["os_version"])
+        g = groups.setdefault(key, {
+            "os_make": r["os_make"], "os_version": r["os_version"], "packages": {}})
+        g["packages"].setdefault(r["name"], []).append(r)
+
+    def version_str(r):
+        return f'{r["epoch"] + ":" if r["epoch"] else ""}{r["version"]}-{r["release"] or ""}'.rstrip("-")
+
+    out = []
+    for g in groups.values():
+        by_name = g["packages"]
+        host_ids = {r["host_id"] for r in [x for rows_ in by_name.values() for x in rows_]}
+        unique = []
+        for name, installs in by_name.items():
+            if len({r["host_id"] for r in installs}) != 1:
+                continue
+            r = installs[0]
+            unique.append({
+                "name": name,
+                "version": version_str(r),
+                "category": r["category"],
+                "needs_update": bool(r["needs_update"]),
+                "is_security_update": bool(r["is_security_update"]),
+                "cves": r["cves"] or "",
+                "host": {"id": r["host_id"], "hostname": r["hostname"], "friendly_name": r["friendly_name"]},
+            })
+        if not unique:
+            continue
+        unique.sort(key=lambda p: p["name"])
+        out.append({
+            "os_make": g["os_make"],
+            "os_version": g["os_version"],
+            "hosts": len(host_ids),
+            "count": len(unique),
+            "packages": unique,
+        })
+    conn.close()
+    return {
+        "success": True,
+        "generated_at": database.now_iso(),
+        "groups": out,
+        "total": sum(g["count"] for g in out),
+    }
+
+
 def _snapshot_group_query(conn, snapshot_id: int):
     """Resolve a package-row id to its snapshot group (host_id, captured_at)."""
     row = conn.execute(
