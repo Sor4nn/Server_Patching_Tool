@@ -1,30 +1,52 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import { useAuth } from '../App'
-import type { Credential, ExecutionEnvironment, Host, JobTemplate } from '../types'
+import type { ButtonBinding, Credential, ExecutionEnvironment, Host, JobTemplate } from '../types'
 import { IconPlay, IconPlus, IconTrash, IconEdit } from '../components/Icons'
+
+const ACTION_BUTTONS = [
+  { key: 'snapshot', label: 'Snapshot' },
+  { key: 'apply', label: 'Patching' },
+  { key: 'check_packages', label: 'Check Packages' },
+  { key: 'pending_update', label: 'Pending Update' },
+]
 
 export default function Templates() {
   const { user } = useAuth()
   const isAdmin = user?.is_admin === 1
   const [templates, setTemplates] = useState<JobTemplate[]>([])
   const [hosts, setHosts] = useState<Host[]>([])
+  const [buttons, setButtons] = useState<ButtonBinding[]>([])
   const [error, setError] = useState('')
+  const [message, setMessage] = useState('')
   const [showCreate, setShowCreate] = useState(false)
   const [editTpl, setEditTpl] = useState<JobTemplate | null>(null)
   const [runTpl, setRunTpl] = useState<JobTemplate | null>(null)
 
   const load = async () => {
     try {
-      const [t, h] = await Promise.all([api.listTemplates(), api.listHosts()])
+      const [t, h, b] = await Promise.all([api.listTemplates(), api.listHosts(), api.listButtons()])
       setTemplates(t.templates)
       setHosts(h.hosts)
+      setButtons(b.buttons || [])
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load')
     }
   }
 
   useEffect(() => { load() }, [])
+
+  const bind = async (key: string, templateId: number | null, label: string) => {
+    setError('')
+    setMessage('')
+    try {
+      await api.bindButton(key, { template_id: templateId, button_label: label })
+      setMessage(`Bound "${label}" button`)
+      load()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Bind failed')
+    }
+  }
 
   const remove = async (id: number) => {
     if (!confirm('Delete this template?')) return
@@ -51,6 +73,7 @@ export default function Templates() {
       </div>
 
       {error && <div className="login-error">{error}</div>}
+      {message && <div className="login-error" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', borderColor: 'rgba(16, 185, 129, 0.4)' }}>{message}</div>}
 
       <div className="card">
         <div className="table-wrap">
@@ -101,6 +124,35 @@ export default function Templates() {
           </table>
         </div>
       </div>
+
+      {isAdmin && (
+        <div className="card mt">
+          <h2 className="card-title">Customize Action Buttons</h2>
+          <p className="muted" style={{ marginTop: 4, marginBottom: 16 }}>
+            Bind templates to the patching actions used on the Run page (Snapshot / Patching / Check Packages / Pending Update).
+          </p>
+          {ACTION_BUTTONS.map((ab) => {
+            const binding = buttons.find((b) => b.button_key === ab.key)
+            return (
+              <div key={ab.key} className="flex flex-between mb" style={{ borderBottom: '1px solid var(--border)', paddingBottom: 14 }}>
+                <div style={{ fontWeight: 600, minWidth: 170 }}>{ab.label}</div>
+                <select
+                  value={binding?.template_id ?? ''}
+                  onChange={(e) => bind(ab.key, e.target.value ? Number(e.target.value) : null, ab.label)}
+                  style={{ maxWidth: 420 }}
+                >
+                  <option value="">— none —</option>
+                  {templates.map((t) => <option key={t.id} value={t.id}>{t.id} — {t.name}</option>)}
+                </select>
+                {binding?.template_id && (
+                  <button type="button" className="btn btn-sm btn-danger" onClick={() => bind(ab.key, null, ab.label)}>Unbind</button>
+                )}
+              </div>
+            )
+          })}
+          {templates.length === 0 && <p className="muted">No templates found — sync a repo or create one.</p>}
+        </div>
+      )}
 
       {showCreate && <CreateTemplateModal onClose={() => setShowCreate(false)} onCreated={load} />}
       {editTpl && <EditTemplateModal key={editTpl.id} template={editTpl} onClose={() => setEditTpl(null)} onSaved={load} />}
