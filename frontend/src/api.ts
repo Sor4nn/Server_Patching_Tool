@@ -80,7 +80,8 @@ export const api = {
 
   listPackages: (params = '') => request<{ success: boolean; packages: PackageAggregate[]; total: number; categories: { name: string }[] }>(`/packages${params}`),
   packageCategories: () => request<{ success: boolean; categories: string[] }>('/packages/categories'),
-  uniquePackagesReport: () => request<UniquePackagesReport>('/packages/report/unique'),
+  uniquePackagesReport: (hostId?: number) =>
+    request<UniquePackagesReport>(`/packages/report/unique${hostId ? `?host_id=${hostId}` : ''}`),
   packageHistory: (hostId: number | null, limit = 200) => {
     const q = new URLSearchParams({ limit: String(limit) })
     if (hostId) q.set('host_id', String(hostId))

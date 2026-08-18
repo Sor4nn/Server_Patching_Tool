@@ -90,12 +90,13 @@ def list_categories(_user: dict = Depends(current_user)):
 
 
 @router.get("/report/unique")
-def unique_packages_report(_user: dict = Depends(current_user)):
+def unique_packages_report(host_id: Optional[int] = None, _user: dict = Depends(current_user)):
     """Dedicated report: packages installed on exactly one host of an OS fleet.
 
     Packages that re-occur (present on more than one host of the same OS,
     including packages installed on every host) are excluded; only packages
-    present on a single host are listed.
+    present on a single host are listed. When host_id is given, only that
+    host's unique packages are returned.
     """
     conn = database.get_connection()
     rows = conn.execute("""
@@ -145,6 +146,9 @@ def unique_packages_report(_user: dict = Depends(current_user)):
             "count": len(unique),
             "packages": unique,
         })
+
+    if host_id is not None:
+        out = [g for g in out if any(p["host"]["id"] == host_id for p in g["packages"])]
     conn.close()
     return {
         "success": True,

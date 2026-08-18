@@ -29,6 +29,7 @@ import Integration from './pages/Integration'
 import Patching from './pages/Patching'
 import PatchingRun from './pages/PatchingRun'
 import Packages from './pages/Packages'
+import PackagesReport from './pages/PackagesReport'
 import Policies from './pages/Policies'
 import Settings from './pages/Settings'
 import Compliance from './pages/Compliance'
@@ -217,6 +218,7 @@ function Layout() {
             <Route path="/integration" element={<Integration />} />
             <Route path="/security-reporting" element={<SecurityReporting />} />
             <Route path="/packages" element={<Packages />} />
+            <Route path="/packages/dedicated" element={<PackagesReport />} />
             <Route path="/history" element={<PackageHistory />} />
             <Route path="/automation-options" element={<Policies />} />
             <Route path="/compliance" element={<Compliance />} />
