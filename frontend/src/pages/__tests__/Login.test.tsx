@@ -12,10 +12,10 @@ describe('Login flow', () => {
     mockApi.login.mockResolvedValue({ success: true, user: adminUser })
     renderApp('/login', null)
 
-    await screen.findByText('Sign in to PatchMon')
+    await screen.findByText('Sign in to GPTA')
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }))
 
-    await waitFor(() => expect(mockApi.login).toHaveBeenCalledWith('test', 'Bogdan123!'))
+    await waitFor(() => expect(mockApi.login).toHaveBeenCalledWith('test', 'test'))
     await screen.findByText(/Welcome back/)
   })
 
@@ -23,7 +23,7 @@ describe('Login flow', () => {
     mockApi.login.mockRejectedValue(new Error('Invalid username or password'))
     renderApp('/login', null)
 
-    await screen.findByText('Sign in to PatchMon')
+    await screen.findByText('Sign in to GPTA')
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }))
 
     await screen.findByText('Invalid username or password')

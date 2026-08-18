@@ -2,27 +2,17 @@ import { useState } from 'react'
 import { api } from '../api'
 import { useAuth } from '../App'
 import {
-  IconPatchMonLogo,
-  IconDiscord,
-  IconStar,
-  IconLinkedIn,
-  IconYouTube,
-  IconTrash,
-  IconLink,
-  IconBug,
-  IconBook,
-  IconGlobe,
+  IconShield,
   IconUser,
   IconLock,
   IconEye,
   IconEyeOff,
-  IconExternalLink,
 } from '../components/Icons'
 
 export default function Login() {
   const { setUser } = useAuth()
   const [username, setUsername] = useState('test')
-  const [password, setPassword] = useState('Bogdan123!')
+  const [password, setPassword] = useState('test')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -44,86 +34,36 @@ export default function Login() {
   return (
     <div className="login-page-container">
       <div className="login-content-split">
-        {/* Left Column: Brand, Version info, Social pills */}
+        {/* Left Column: Brand, Version info */}
         <div className="login-brand-col">
           <div>
             <div className="login-brand-header">
-              <IconPatchMonLogo size={42} />
-              <span className="login-brand-text">PatchMon</span>
+              <IconShield size={42} />
+              <span className="login-brand-text">GPTA</span>
             </div>
-            <div className="login-tagline">Linux Patch Management</div>
+            <div className="login-tagline">Server Patch Management</div>
           </div>
 
-          {/* Release card */}
+          {/* Version card */}
           <div className="version-release-card">
             <div className="version-badge-green">
-              <span style={{ fontSize: 16 }}>●</span> You're on Latest <strong>v2.1.3</strong>
+              <span style={{ fontSize: 16 }}>●</span> You're on the latest <strong>v1.00</strong>
             </div>
-            <h3 className="version-title">Version 2.1.3</h3>
-            <div className="version-date">
-              <span>📅</span> Released August 16, 2026
-            </div>
+            <h3 className="version-title">Version 1.00</h3>
             <p className="version-desc">
-              A bug-fix release: single sign-on with ADFS, Mattermost and Rocket.Chat webhooks, compliance content on installs outside the official Docker image, and laptops that showed as stale after waking.
+              Fresh start for server patch management: host inventory, package
+              tracking and history, security reporting, and automated patching
+              runs in one dashboard.
             </p>
-            <a href="https://github.com/Sor4nn/Server_Patching_Tool/releases" target="_blank" rel="noreferrer" className="version-link">
-              View Release Notes <IconExternalLink size={13} />
-            </a>
-          </div>
-
-          {/* Connect section */}
-          <div>
-            <div className="connect-section-title">Connect with us</div>
-            <div className="social-pills-row">
-              <a href="https://discord.com" target="_blank" rel="noreferrer" className="social-pill discord-pill">
-                <IconDiscord size={14} />
-                <span className="social-count">811</span>
-              </a>
-
-              <a href="https://github.com/Sor4nn/Server_Patching_Tool" target="_blank" rel="noreferrer" className="social-pill github-pill">
-                <IconStar size={13} className="star-icon" />
-                <span className="social-count">3.2k</span>
-              </a>
-
-              <a href="https://linkedin.com" target="_blank" rel="noreferrer" className="social-pill linkedin-pill">
-                <IconLinkedIn size={13} />
-                <span className="social-count">803</span>
-              </a>
-
-              <a href="https://youtube.com" target="_blank" rel="noreferrer" className="social-pill youtube-pill">
-                <IconYouTube size={14} />
-                <span className="social-count">194</span>
-              </a>
-
-              <button type="button" className="social-pill" title="Clean Cache">
-                <IconTrash size={14} />
-              </button>
-
-              <button type="button" className="social-pill" title="API">
-                <IconLink size={14} />
-              </button>
-
-              <button type="button" className="social-pill" title="Report Bug">
-                <IconBug size={14} />
-              </button>
-
-              <button type="button" className="social-pill" title="Documentation">
-                <IconBook size={14} />
-              </button>
-
-              <button type="button" className="social-pill" title="Website">
-                <IconGlobe size={14} />
-              </button>
-            </div>
           </div>
         </div>
 
         {/* Right Column: White Sign In Card */}
         <div className="white-login-card">
           <div className="white-card-logo">
-            <IconPatchMonLogo size={52} />
+            <IconShield size={52} />
           </div>
-          <h2 className="white-card-title">Sign in to PatchMon</h2>
+          <h2 className="white-card-title">Sign in to GPTA</h2>
           <p className="white-card-sub">Monitor and manage your Linux package updates</p>
 
           {error && <div className="login-error">{error}</div>}

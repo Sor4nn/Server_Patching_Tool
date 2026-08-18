@@ -1116,12 +1116,11 @@ input.form-input, select.form-input, textarea.form-input {
   justify-content: center;
   padding: 40px 20px;
   background-color: #060910;
-  background-image: 
-    radial-gradient(circle at 10% 20%, rgba(37, 99, 235, 0.15), transparent 40%),
-    radial-gradient(circle at 90% 80%, rgba(37, 99, 235, 0.15), transparent 40%),
-    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
-  background-size: 100% 100%, 100% 100%, 32px 32px, 32px 32px;
+  background-image:
+    linear-gradient(rgba(6, 9, 16, 0.72), rgba(6, 9, 16, 0.72)),
+    url('https://images.wallpapersden.com/image/download/frieren-hd-frieren-beyond-journey-s-end_bmdoamyUmZqaraWkpJRpamVlrWdsa2Y.jpg');
+  background-size: cover;
+  background-position: center;
 }
 
 .login-content-split {

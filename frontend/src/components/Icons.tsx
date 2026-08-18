@@ -5,19 +5,6 @@ interface IconProps extends React.SVGProps<SVGSVGElement> {
   className?: string
 }
 
-/* Official PatchMon Pacman Logo (Green with red dot eye) */
-export const IconPatchMonLogo: React.FC<IconProps> = ({ size = 28, className = '', ...props }) => (
-  <svg width={size} height={size} viewBox="0 0 100 100" fill="none" className={className} {...props}>
-    {/* Pacman shape facing right-up */}
-    <path
-      d="M50 50 L88 20 A44 44 0 1 0 88 80 Z"
-      fill="#22c55e"
-    />
-    {/* Red eye dot */}
-    <circle cx="58" cy="28" r="6" fill="#ef4444" />
-  </svg>
-)
-
 export const IconDashboard: React.FC<IconProps> = ({ size = 18, className = '', ...props }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className} {...props}>
     <rect width="7" height="9" x="3" y="3" rx="1" />

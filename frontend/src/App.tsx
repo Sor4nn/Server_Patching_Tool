@@ -17,7 +17,6 @@ import {
   IconChevronRight,
   IconChevronLeft,
   IconPlus,
-  IconPatchMonLogo,
 } from './components/Icons'
 
 import Dashboard from './pages/Dashboard'
@@ -72,12 +71,12 @@ function Layout() {
         <div className="sidebar-header">
           {!collapsed ? (
             <NavLink to="/" className="brand-wrapper">
-              <IconPatchMonLogo size={26} />
-              <span className="brand-name">PatchMon</span>
+              <IconShield size={26} />
+              <span className="brand-name">GPTA</span>
             </NavLink>
           ) : (
-            <NavLink to="/" className="brand-wrapper" title="PatchMon">
-              <IconPatchMonLogo size={26} />
+            <NavLink to="/" className="brand-wrapper" title="GPTA">
+              <IconShield size={26} />
             </NavLink>
           )}
           <button

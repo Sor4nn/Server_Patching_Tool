@@ -89,7 +89,7 @@ export default function Dashboard() {
       <div className="page-header">
         <div>
           <h1 className="page-title">Welcome back, {user?.username || 'test'} 👋</h1>
-          <p className="page-sub">Overview of your PatchMon infrastructure</p>
+          <p className="page-sub">Overview of your GPTA infrastructure</p>
         </div>
         <div className="flex">
           <button type="button" className="btn btn-sm" onClick={() => load()} title="Refresh data">

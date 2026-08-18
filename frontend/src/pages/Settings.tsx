@@ -370,7 +370,7 @@ export default function Settings() {
               <div className="table-wrap">
                 <table>
                   <tbody>
-                    <tr><th>Server Release</th><td className="mono" style={{ color: '#4ade80' }}>v2.1.3</td></tr>
+                    <tr><th>Server Release</th><td className="mono" style={{ color: '#4ade80' }}>v1.00</td></tr>
                     <tr><th>API Backend</th><td className="mono">Python FastAPI / SQLite</td></tr>
                     <tr><th>Frontend UI</th><td className="mono">React 18 / TypeScript / Vite</td></tr>
                     <tr><th>Agent Support</th><td className="mono">Ansible AWX / Custom Agents</td></tr>

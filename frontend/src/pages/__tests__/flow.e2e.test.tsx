@@ -37,7 +37,7 @@ describe('End-to-end UI flow', () => {
 
   it('login -> hosts -> add host -> repositories -> add repository', async () => {
     renderApp('/login', null)
-    await screen.findByText('Sign in to PatchMon')
+    await screen.findByText('Sign in to GPTA')
     await userEvent.click(screen.getByRole('button', { name: 'Sign in' }))
     await screen.findByText(/Welcome back, sor4n/)
 
