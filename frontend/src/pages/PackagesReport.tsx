@@ -2,11 +2,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
 import type { UniquePackagesReport } from '../types'
-import { IconChevronLeft, IconPackage, IconRefresh, IconSearch } from '../components/Icons'
+import { IconChevronLeft, IconPackage, IconRefresh } from '../components/Icons'
+import SearchSelect from '../components/SearchSelect'
 
 export default function PackagesReport() {
   const [report, setReport] = useState<UniquePackagesReport | null>(null)
-  const [query, setQuery] = useState('')
+  const [serverId, setServerId] = useState<number | null>(null)
+  const [pkgName, setPkgName] = useState<string | null>(null)
+  const [osName, setOsName] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
   const load = useCallback(() => {
@@ -38,23 +41,36 @@ export default function PackagesReport() {
     return map
   }, [report])
 
+  const serverItems = useMemo(
+    () => [...hostMeta.entries()].map(([value, m]) => ({ value, label: m.name })),
+    [hostMeta],
+  )
+
+  const packageItems = useMemo(() => {
+    const names = new Set<string>()
+    for (const g of report?.groups ?? []) for (const p of g.packages) names.add(p.name)
+    return [...names].sort().map((name) => ({ value: name, label: name }))
+  }, [report])
+
+  const osItems = useMemo(() => {
+    const oses = new Set<string>()
+    for (const g of report?.groups ?? []) oses.add(`${g.os_make} ${g.os_version}`)
+    return [...oses].sort().map((os) => ({ value: os, label: os }))
+  }, [report])
+
   const allRows = report ? report.groups.flatMap((g) => g.packages) : []
 
-  const q = query.trim().toLowerCase()
-  const filtered = q
-    ? allRows.filter(
-        (p) =>
-          (p.host.friendly_name || p.host.hostname).toLowerCase().includes(q) ||
-          p.name.toLowerCase().includes(q),
-      )
+  const hasFilter = serverId !== null || pkgName !== null || osName !== null
+  const filtered = hasFilter
+    ? allRows.filter((p) => {
+        if (serverId !== null && p.host.id !== serverId) return false
+        if (pkgName !== null && p.name !== pkgName) return false
+        if (osName !== null && hostMeta.get(p.host.id)?.os !== osName) return false
+        return true
+      })
     : allRows
 
-  const matchedServers = useMemo(() => {
-    const ids = new Set(filtered.map((p) => p.host.id))
-    return ids
-  }, [filtered])
-  const singleServer = matchedServers.size === 1 ? [...matchedServers][0] : null
-  const singleMeta = singleServer ? hostMeta.get(singleServer) : null
+  const singleMeta = serverId !== null ? hostMeta.get(serverId) ?? null : null
 
   return (
     <div>
@@ -77,16 +93,33 @@ export default function PackagesReport() {
         </button>
       </div>
 
-      {/* Search form */}
+      {/* Filter form */}
       <div className="card" style={{ marginBottom: 18 }}>
         <div className="flex flex-between" style={{ flexWrap: 'wrap', gap: 10 }}>
-          <div className="top-search-bar" style={{ width: 380 }}>
-            <IconSearch className="top-search-icon" size={15} />
-            <input
-              className="top-search-input"
-              placeholder="Search server or package…"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
+          <div className="flex" style={{ gap: 10, flexWrap: 'wrap' }}>
+            <SearchSelect
+              items={serverItems}
+              selected={serverId}
+              onSelect={setServerId}
+              placeholder="Server — type to search…"
+              allLabel="All servers"
+              width={230}
+            />
+            <SearchSelect
+              items={packageItems}
+              selected={pkgName}
+              onSelect={setPkgName}
+              placeholder="Package — type to search…"
+              allLabel="All packages"
+              width={230}
+            />
+            <SearchSelect
+              items={osItems}
+              selected={osName}
+              onSelect={setOsName}
+              placeholder="OS — type to search…"
+              allLabel="All OS"
+              width={230}
             />
           </div>
 
@@ -128,8 +161,8 @@ export default function PackagesReport() {
               ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={6} style={{ textAlign: 'center', padding: 32 }} className="muted">
-                    {q
-                      ? 'No unique packages match that server or package name.'
+                    {hasFilter
+                      ? 'No unique packages match the selected filters.'
                       : 'No unique packages found. Every package re-occurs across the hosts of its OS fleet.'}
                   </td>
                 </tr>
