@@ -261,6 +261,7 @@ def update_packages(body: UpdatePackages):
             )
 
     conn.execute("UPDATE hosts SET updated_at = %s, last_seen = %s WHERE id = %s", (now, now, host_id))
+    database.capture_package_snapshot(conn, host_id)
     conn.commit()
     conn.close()
     return f"Updated {len(body.packages)} packages for {body.hostname}"

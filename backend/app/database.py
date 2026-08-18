@@ -101,6 +101,23 @@ CREATE TABLE IF NOT EXISTS host_packages (
 );
 CREATE INDEX IF NOT EXISTS idx_host_packages_host ON host_packages(host_id);
 
+CREATE TABLE IF NOT EXISTS package_snapshots (
+    id SERIAL PRIMARY KEY,
+    host_id INTEGER NOT NULL REFERENCES hosts(id) ON DELETE CASCADE,
+    captured_at TEXT NOT NULL,
+    kind TEXT NOT NULL DEFAULT 'report',   -- baseline | report
+    name TEXT NOT NULL,
+    version TEXT,
+    release TEXT,
+    arch TEXT,
+    epoch TEXT,
+    available_version TEXT,
+    needs_update INTEGER NOT NULL DEFAULT 0,
+    is_security_update INTEGER NOT NULL DEFAULT 0,
+    cves TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_pkg_snap_host_time ON package_snapshots(host_id, captured_at);
+
 CREATE TABLE IF NOT EXISTS patch_policies (
     id SERIAL PRIMARY KEY,
     name TEXT NOT NULL UNIQUE,
@@ -257,6 +274,47 @@ def _execute_schema(conn):
             conn.execute(statement)
 
 
+def capture_package_snapshot(conn, host_id: int, kind: str = "report") -> bool:
+    """Persist a compact history snapshot of a host's package state.
+
+    A snapshot is written only when the installed set or any pending-update
+    flag changed since the last snapshot (baseline when none exists yet), so
+    history records material changes like git commits rather than identical
+    reports.
+    """
+    current = conn.execute(
+        "SELECT name, version, release, arch, epoch, available_version, needs_update, is_security_update, cves "
+        "FROM host_packages WHERE host_id = %s ORDER BY name", (host_id,)).fetchall()
+    last = conn.execute(
+        "SELECT name, version, release, arch, epoch, available_version, needs_update, is_security_update, cves "
+        "FROM package_snapshots WHERE host_id = %s "
+        "AND captured_at = (SELECT MAX(captured_at) FROM package_snapshots WHERE host_id = %s)",
+        (host_id, host_id)).fetchall()
+
+    def _insert(snapshot_kind: str, now: str):
+        for p in current:
+            conn.execute(
+                "INSERT INTO package_snapshots (host_id, captured_at, kind, name, version, release, arch, epoch, "
+                "available_version, needs_update, is_security_update, cves) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                (host_id, now, snapshot_kind, p["name"], p["version"], p["release"], p["arch"], p["epoch"],
+                 p["available_version"], p["needs_update"], p["is_security_update"], p["cves"]),
+            )
+
+    if not last:
+        _insert("baseline", now_iso())
+        return bool(current)
+
+    last_key = {(r["name"], r["version"], r["release"], r["arch"], r["needs_update"], r["is_security_update"])
+                for r in last}
+    cur_key = {(r["name"], r["version"], r["release"], r["arch"], r["needs_update"], r["is_security_update"])
+               for r in current}
+    if last_key == cur_key:
+        return False
+    _insert(kind, now_iso())
+    return True
+
+
 def init_db():
     conn = get_connection()
     _execute_schema(conn)
@@ -268,6 +326,15 @@ def init_db():
     conn.execute("ALTER TABLE templates ADD COLUMN IF NOT EXISTS inventory_source_id INTEGER REFERENCES inventory_sources(id) ON DELETE CASCADE")
     conn.execute("ALTER TABLE host_packages ADD COLUMN IF NOT EXISTS cves TEXT")
     conn.execute("ALTER TABLE patch_runs ADD COLUMN IF NOT EXISTS output TEXT")
+    conn.commit()
+
+    # Backfill package history baselines for hosts that have packages but no snapshot yet.
+    for row in conn.execute(
+        "SELECT h.id FROM hosts h "
+        "WHERE EXISTS (SELECT 1 FROM host_packages hp WHERE hp.host_id = h.id) "
+        "AND NOT EXISTS (SELECT 1 FROM package_snapshots ps WHERE ps.host_id = h.id)"
+    ).fetchall():
+        capture_package_snapshot(conn, row["id"])
     conn.commit()
 
     # Seed host groups

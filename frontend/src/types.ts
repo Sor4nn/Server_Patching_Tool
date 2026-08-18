@@ -108,6 +108,41 @@ export interface PackageHost {
   cves: string
 }
 
+export interface PackageSnapshot {
+  snapshot_id: number
+  host_id: number
+  hostname: string
+  friendly_name: string | null
+  captured_at: string
+  kind: string
+  package_count: number
+  changes: number
+}
+
+export interface PackageDiffItem {
+  name: string
+  version?: string
+  from?: string
+  to?: string
+  needs_update: boolean
+  is_security_update: boolean
+  from_needs_update?: boolean
+  to_needs_update?: boolean
+  from_security?: boolean
+  to_security?: boolean
+  cves: string
+}
+
+export interface PackageDiff {
+  success: boolean
+  from: { id: number; captured_at: string; kind: string }
+  to: { id: number; captured_at: string; kind: string }
+  summary: { added: number; removed: number; changed: number; security_to: number }
+  added: PackageDiffItem[]
+  removed: PackageDiffItem[]
+  changed: PackageDiffItem[]
+}
+
 export interface PackageAggregate {
   id: number
   name: string
@@ -349,4 +384,54 @@ export interface ServicesResponse {
     critical_failed: number
     fs_over_threshold: number
   }
+}
+
+export interface SecurityPatchedRow {
+  name: string
+  total: number
+  up_to_date: number
+  needs_updates: number
+  not_reporting: number
+}
+
+export interface SecurityHostRow {
+  id: number
+  hostname: string
+  friendly_name: string | null
+  ip_address: string | null
+  os_make: string | null
+  os_version: string | null
+  latest_patch: string | null
+  last_seen: string | null
+  group_id: number | null
+  group_name: string | null
+  package_count: number
+  outdated_count: number
+  security_count: number
+  cve_count: number
+  cve_packages: string | null
+  status: 'up_to_date' | 'needs_updates' | 'not_reporting'
+  needs_reboot: boolean
+}
+
+export interface SecurityReport {
+  success: boolean
+  generated_at: string
+  filters: { status: string | null; group_id: number | null }
+  summary: {
+    total_hosts: number
+    reporting: number
+    not_reporting: number
+    up_to_date: number
+    needs_updates: number
+    needs_reboot: number
+    hosts_with_cves: number
+    package_installs: number
+    outdated_packages: number
+    security_updates: number
+    patch_coverage_pct: number
+  }
+  groups: SecurityPatchedRow[]
+  os: SecurityPatchedRow[]
+  hosts: SecurityHostRow[]
 }
