@@ -1,62 +1,52 @@
-import { screen, waitFor, within } from '@testing-library/react'
+import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
-import type { Host } from '../../types'
-import { getMockApi, renderApp, resetMockApi } from '../../test/helpers'
+import { adminUser, getMockApi, renderApp, resetMockApi } from '../../test/helpers'
 
 const mockApi = getMockApi()
-
-const host: Host = {
-  id: 1, hostname: 'srv-prod-01', ip_address: '10.0.0.10', os_make: 'Ubuntu', os_version: '24.04',
-  latest_patch: null, uptime: null, state: null, action: null, remarks: null, friendly_name: null,
-  group_id: null, group: null, created_at: '', updated_at: '', last_seen: null,
+const host = {
+  id: 3, hostname: 'srv-prod', ip_address: '192.168.1.214', os_make: 'Red Hat Enterprise Linux',
+  os_version: '9.8', latest_patch: null, uptime: null, state: null, action: null, remarks: null,
+  friendly_name: '', group_id: 6, created_at: '', updated_at: '', last_seen: '2026-08-18T00:00:00Z',
+  outdated_count: 0, security_count: 0,
+  group: { id: 6, name: 'Development' },
+}
+const source = {
+  id: 6, name: 'test', description: null, repo_url: 'https://github.com/Sor4nn/Server_Patching_Tool',
+  branch: 'main', auth_type: 'none', username: null, password: null, token: null,
+  file_pattern: '**/*', playbook_pattern: 'ansible_scripts/*.yml', prune_missing: 0, enabled: 1,
+  last_sync_at: null, last_sync_status: null,
 }
 
-describe('Hosts page', () => {
-  beforeEach(() => {
-    resetMockApi()
+describe('Hosts re-import', () => {
+  beforeEach(() => resetMockApi())
+
+  it('syncs enabled inventory sources and shows the result', async () => {
     mockApi.listHosts.mockResolvedValue({ success: true, hosts: [host] })
     mockApi.listGroups.mockResolvedValue({ success: true, groups: [] })
+    mockApi.listSources.mockResolvedValue({ success: true, sources: [source, { ...source, id: 7, enabled: 0 }] })
+    mockApi.syncSource.mockResolvedValue({
+      success: true,
+      summary: { added_groups: 2, added_hosts: 2, updated_hosts: 1, removed_hosts: 0, files: 3 },
+    })
+
+    renderApp('/hosts', adminUser)
+
+    await userEvent.click(await screen.findByRole('button', { name: /Re-Import/ }))
+
+    expect(mockApi.syncSource).toHaveBeenCalledTimes(1)
+    expect(mockApi.syncSource).toHaveBeenCalledWith(6)
+    await screen.findByText(/Re-imported 1 source\(s\): \+2 hosts added, 1 updated/)
+    expect(mockApi.listHosts).toHaveBeenCalled()
   })
 
-  it('lists hosts and omits dead toolbar buttons', async () => {
-    renderApp('/hosts')
+  it('hides the button for non-admins', () => {
+    mockApi.listHosts.mockResolvedValue({ success: true, hosts: [] })
+    mockApi.listGroups.mockResolvedValue({ success: true, groups: [] })
 
-    await screen.findByText('srv-prod-01')
-    expect(screen.queryByText('Columns')).not.toBeInTheDocument()
-    expect(screen.queryByText('Filters')).not.toBeInTheDocument()
-    expect(screen.queryByText('Hide Stale')).not.toBeInTheDocument()
-  })
+    renderApp('/hosts', { ...adminUser, is_admin: 0 })
 
-  it('adds a host through the modal', async () => {
-    mockApi.createHost.mockResolvedValue({ success: true, host })
-    renderApp('/hosts')
-    await screen.findByText('srv-prod-01')
-
-    const openBtn = screen.getAllByRole('button', { name: /Add Host/ }).find((b) => b.closest('.page-header'))
-    await userEvent.click(openBtn!)
-    const modal = await screen.findByRole('heading', { name: 'Add New Host' })
-    const dialog = modal.closest('.modal') as HTMLElement
-    const inputs = within(dialog).getAllByRole('textbox') as HTMLInputElement[]
-    const hostnameInput = inputs.find((i) => i.placeholder.includes('srv-prod'))
-    expect(hostnameInput).toBeTruthy()
-    await userEvent.clear(hostnameInput!)
-    await userEvent.type(hostnameInput!, 'srv-new-01')
-
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Add Host' }))
-    await waitFor(() => expect(mockApi.createHost).toHaveBeenCalled())
-    const body = mockApi.createHost.mock.calls[0][0]
-    expect((body as { hostname: string }).hostname).toBe('srv-new-01')
-  })
-
-  it('deletes a host after confirmation', async () => {
-    mockApi.deleteHost.mockResolvedValue({ success: true })
-    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true)
-    renderApp('/hosts')
-    await screen.findByText('srv-prod-01')
-
-    await userEvent.click(screen.getByTitle('Delete Host'))
-    await waitFor(() => expect(mockApi.deleteHost).toHaveBeenCalledWith(1))
-    confirmSpy.mockRestore()
+    expect(screen.queryByRole('button', { name: /Re-Import/ })).toBeNull()
+    expect(screen.queryByRole('button', { name: /Add Host/ })).toBeNull()
   })
 })

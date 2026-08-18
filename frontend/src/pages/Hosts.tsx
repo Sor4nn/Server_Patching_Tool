@@ -24,6 +24,8 @@ export default function Hosts() {
   const [showCreate, setShowCreate] = useState(false)
   const [error, setError] = useState('')
   const [selectedIds, setSelectedIds] = useState<number[]>([])
+  const [importing, setImporting] = useState(false)
+  const [importMsg, setImportMsg] = useState('')
 
   const load = async () => {
     try {
@@ -36,6 +38,34 @@ export default function Hosts() {
   }
 
   useEffect(() => { load() }, [])
+
+  const reimport = async () => {
+    setImporting(true)
+    setImportMsg('')
+    try {
+      const src = await api.listSources()
+      const enabled = src.sources.filter((s) => s.enabled === 1)
+      if (enabled.length === 0) {
+        setImportMsg('No inventory sources configured')
+        return
+      }
+      let added = 0
+      let updated = 0
+      for (const s of enabled) {
+        const res = await api.syncSource(s.id)
+        if (res.success && res.summary) {
+          added += res.summary.added_hosts
+          updated += res.summary.updated_hosts
+        }
+      }
+      setImportMsg(`Re-imported ${enabled.length} source(s): +${added} hosts added, ${updated} updated`)
+      await load()
+    } catch (e) {
+      setImportMsg(e instanceof Error ? e.message : 'Re-import failed')
+    } finally {
+      setImporting(false)
+    }
+  }
 
   const filtered = search
     ? hosts.filter((h) => (h.hostname + ' ' + (h.ip_address || '') + ' ' + (h.friendly_name || '') + ' ' + (h.os_make || '')).toLowerCase().includes(search.toLowerCase()))
@@ -78,6 +108,17 @@ export default function Hosts() {
             <IconRefresh size={14} />
           </button>
           {isAdmin && (
+            <button
+              type="button"
+              className="btn btn-sm"
+              onClick={reimport}
+              disabled={importing}
+              title="Re-import hosts from inventory sources"
+            >
+              <IconRefresh size={14} /> {importing ? 'Re-importing…' : 'Re-Import'}
+            </button>
+          )}
+          {isAdmin && (
             <button type="button" className="btn btn-primary" onClick={() => setShowCreate(true)}>
               <IconPlus size={14} /> Add Host
             </button>
@@ -86,6 +127,7 @@ export default function Hosts() {
       </div>
 
       {error && <div className="login-error">{error}</div>}
+      {importMsg && <div className="muted" style={{ marginBottom: 12, fontSize: 12.5 }}>{importMsg}</div>}
 
       {/* Top 4 Stat Cards */}
       <div className="top-stats-row" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginBottom: 18 }}>
