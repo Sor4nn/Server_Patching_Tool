@@ -133,10 +133,19 @@ function Layout() {
               {!collapsed && <span className="nav-label">Exec Environments</span>}
             </NavLink>
 
-            <NavLink to="/packages" className="nav-item">
-              <span className="nav-icon"><IconPackage size={17} /></span>
-              {!collapsed && <span className="nav-label">Packages</span>}
-            </NavLink>
+            <div className="nav-item-group">
+              <NavLink to="/packages" className="nav-item">
+                <span className="nav-icon"><IconPackage size={17} /></span>
+                {!collapsed && <span className="nav-label">Packages</span>}
+              </NavLink>
+              {!collapsed && (
+                <div className="nav-sub">
+                  <NavLink to="/packages/dedicated" className="nav-subitem">
+                    Unique Package Report
+                  </NavLink>
+                </div>
+              )}
+            </div>
 
             <NavLink to="/history" className="nav-item">
               <span className="nav-icon"><IconList size={17} /></span>

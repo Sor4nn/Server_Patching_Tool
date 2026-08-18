@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { api } from '../api'
 import type { PackageAggregate, Host } from '../types'
 import {
@@ -9,7 +8,6 @@ import {
 } from '../components/Icons'
 
 export default function Packages() {
-  const navigate = useNavigate()
   const [packages, setPackages] = useState<PackageAggregate[]>([])
   const [categories, setCategories] = useState<string[]>([])
   const [hosts, setHosts] = useState<Host[]>([])
@@ -127,28 +125,14 @@ export default function Packages() {
 
       {/* Search and Filters Bar */}
       <div className="flex flex-between mb" style={{ flexWrap: 'wrap', gap: 10 }}>
-        <div className="flex" style={{ gap: 10, alignItems: 'center' }}>
-          <select
-            value=""
-            onChange={(e) => {
-              if (e.target.value === 'dedicated') navigate('/packages/dedicated')
-              e.target.value = ''
-            }}
-            style={{ width: 'auto', padding: '5px 10px', fontSize: 12 }}
-          >
-            <option value="">View: All Packages</option>
-            <option value="dedicated">Dedicated Report</option>
-          </select>
-
-          <div className="top-search-bar" style={{ width: 340 }}>
-            <IconSearch className="top-search-icon" size={15} />
-            <input
-              className="top-search-input"
-              placeholder="Search packages..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
+        <div className="top-search-bar" style={{ width: 340 }}>
+          <IconSearch className="top-search-icon" size={15} />
+          <input
+            className="top-search-input"
+            placeholder="Search packages..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
 
         <div className="flex" style={{ gap: 8 }}>

@@ -1,49 +1,60 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { api } from '../api'
-import type { Host, UniquePackagesReport } from '../types'
-import { IconChevronLeft, IconPackage, IconRefresh } from '../components/Icons'
+import type { UniquePackagesReport } from '../types'
+import { IconChevronLeft, IconPackage, IconRefresh, IconSearch } from '../components/Icons'
 
 export default function PackagesReport() {
-  const navigate = useNavigate()
-  const [hosts, setHosts] = useState<Host[]>([])
-  const [scope, setScope] = useState<'server' | 'all'>('server')
-  const [hostId, setHostId] = useState<number | null>(null)
   const [report, setReport] = useState<UniquePackagesReport | null>(null)
+  const [query, setQuery] = useState('')
   const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
-    api.listHosts()
-      .then((r) => {
-        const eligible = (r.hosts || []).filter((h) => h.os_make && h.os_version)
-        setHosts(eligible)
-        if (eligible.length > 0) setHostId(eligible[0].id)
-      })
-      .catch(() => {})
-  }, [])
-
-  const load = useCallback((id: number | null) => {
+  const load = useCallback(() => {
     setLoading(true)
     setReport(null)
-    api.uniquePackagesReport(id ?? undefined)
+    api.uniquePackagesReport()
       .then(setReport)
       .catch(() => setReport({ success: false, generated_at: '', groups: [], total: 0 }))
       .finally(() => setLoading(false))
   }, [])
 
   useEffect(() => {
-    if (scope === 'server') {
-      if (hostId !== null) load(hostId)
-    } else {
-      load(null)
-    }
-  }, [scope, hostId, load])
+    load()
+  }, [load])
 
-  const selectedHost = hosts.find((h) => h.id === hostId) || null
-  const rows = report ? report.groups.flatMap((g) => g.packages) : []
-  const fleetHosts = selectedHost
-    ? report?.groups.reduce((acc, g) => acc + g.hosts, 0) ?? 0
-    : 0
+  const hostMeta = useMemo(() => {
+    const map = new Map<number, { name: string; os: string; fleet: number }>()
+    for (const g of report?.groups ?? []) {
+      for (const p of g.packages) {
+        if (!map.has(p.host.id)) {
+          map.set(p.host.id, {
+            name: p.host.friendly_name || p.host.hostname,
+            os: `${g.os_make} ${g.os_version}`,
+            fleet: g.hosts,
+          })
+        }
+      }
+    }
+    return map
+  }, [report])
+
+  const allRows = report ? report.groups.flatMap((g) => g.packages) : []
+
+  const q = query.trim().toLowerCase()
+  const filtered = q
+    ? allRows.filter(
+        (p) =>
+          (p.host.friendly_name || p.host.hostname).toLowerCase().includes(q) ||
+          p.name.toLowerCase().includes(q),
+      )
+    : allRows
+
+  const matchedServers = useMemo(() => {
+    const ids = new Set(filtered.map((p) => p.host.id))
+    return ids
+  }, [filtered])
+  const singleServer = matchedServers.size === 1 ? [...matchedServers][0] : null
+  const singleMeta = singleServer ? hostMeta.get(singleServer) : null
 
   return (
     <div>
@@ -54,61 +65,41 @@ export default function PackagesReport() {
               <IconChevronLeft size={14} /> Packages
             </Link>
             <div>
-              <h1 className="page-title" style={{ margin: 0 }}>Dedicated Report — Unique Packages</h1>
+              <h1 className="page-title" style={{ margin: 0 }}>Unique Package Report</h1>
               <p className="page-sub">
                 Packages installed on exactly one host of an OS fleet; re-occuring packages are excluded.
               </p>
             </div>
           </div>
         </div>
-        <button type="button" className="btn btn-sm" onClick={() => (scope === 'server' ? load(hostId) : load(null))} title="Refresh">
+        <button type="button" className="btn btn-sm" onClick={load} title="Refresh">
           <IconRefresh size={14} /> Refresh
         </button>
       </div>
 
-      {/* Report form */}
+      {/* Search form */}
       <div className="card" style={{ marginBottom: 18 }}>
         <div className="flex flex-between" style={{ flexWrap: 'wrap', gap: 10 }}>
-          <div className="flex" style={{ gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-            <div className="flex" style={{ gap: 6 }}>
-              <button
-                type="button"
-                className={`sub-tab-btn ${scope === 'server' ? 'active' : ''}`}
-                onClick={() => setScope('server')}
-              >
-                Per Server
-              </button>
-              <button
-                type="button"
-                className={`sub-tab-btn ${scope === 'all' ? 'active' : ''}`}
-                onClick={() => setScope('all')}
-              >
-                All Servers
-              </button>
-            </div>
-
-            {scope === 'server' && (
-              <select
-                value={hostId ?? ''}
-                onChange={(e) => setHostId(e.target.value ? Number(e.target.value) : null)}
-                style={{ width: 'auto', padding: '5px 10px', fontSize: 12 }}
-              >
-                {hosts.length === 0 && <option value="">No servers with OS info</option>}
-                {hosts.map((h) => (
-                  <option key={h.id} value={h.id}>
-                    {h.friendly_name || h.hostname} ({h.os_make} {h.os_version})
-                  </option>
-                ))}
-              </select>
-            )}
+          <div className="top-search-bar" style={{ width: 380 }}>
+            <IconSearch className="top-search-icon" size={15} />
+            <input
+              className="top-search-input"
+              placeholder="Search server or package…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
           </div>
 
-          {selectedHost && scope === 'server' && (
+          {singleMeta ? (
             <div className="flex" style={{ gap: 12, alignItems: 'center' }}>
-              <span className="badge badge-blue">Server: {selectedHost.friendly_name || selectedHost.hostname}</span>
-              <span className="badge badge-blue">{selectedHost.os_make} {selectedHost.os_version}</span>
-              <span className="badge badge-blue">{fleetHosts} hosts in fleet</span>
+              <span className="badge badge-blue">Server: {singleMeta.name}</span>
+              <span className="badge badge-blue">{singleMeta.os}</span>
+              <span className="badge badge-blue">{singleMeta.fleet} hosts in fleet</span>
             </div>
+          ) : (
+            <span className="muted" style={{ fontSize: 12 }}>
+              {report ? `${filtered.length} unique package${filtered.length === 1 ? '' : 's'}` : ''}
+            </span>
           )}
         </div>
       </div>
@@ -134,17 +125,19 @@ export default function PackagesReport() {
                     Loading report…
                   </td>
                 </tr>
-              ) : !report || report.total === 0 ? (
+              ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={6} style={{ textAlign: 'center', padding: 32 }} className="muted">
-                    No unique packages found. Every package re-occurs across the hosts of its OS fleet.
+                    {q
+                      ? 'No unique packages match that server or package name.'
+                      : 'No unique packages found. Every package re-occurs across the hosts of its OS fleet.'}
                   </td>
                 </tr>
-              ) : report.groups.map((g) => (
-                g.packages.map((p) => {
+              ) : filtered.map((p) => {
                   const cves = p.cves ? p.cves.split(',').map((c) => c.trim()).filter(Boolean) : []
+                  const meta = hostMeta.get(p.host.id)
                   return (
-                    <tr key={`${g.os_make}-${g.os_version}-${p.name}`}>
+                    <tr key={`${meta?.os}-${p.name}`}>
                       <td>
                         <span className="flex" style={{ gap: 7 }}>
                           <IconPackage size={15} className="muted" />
@@ -157,7 +150,7 @@ export default function PackagesReport() {
                           {p.host.friendly_name || p.host.hostname}
                         </Link>
                       </td>
-                      <td className="muted">{g.os_make} {g.os_version}</td>
+                      <td className="muted">{meta?.os}</td>
                       <td>
                         {p.is_security_update && p.needs_update ? (
                           <span className="badge badge-red">Security</span>
@@ -181,19 +174,9 @@ export default function PackagesReport() {
                       </td>
                     </tr>
                   )
-                })
-              ))}
+                })}
             </tbody>
           </table>
-        </div>
-
-        <div className="flex flex-between" style={{ padding: '12px 18px', borderTop: '1px solid var(--border-subtle)', background: '#0a0f1c', fontSize: 12, color: 'var(--text-dim)' }}>
-          {(report && rows.length > 0) ? (
-            <span>{rows.length} unique package{rows.length === 1 ? '' : 's'}</span>
-          ) : <span />}
-          <button type="button" className="btn btn-sm" onClick={() => navigate('/packages')}>
-            Back to Packages
-          </button>
         </div>
       </div>
     </div>
