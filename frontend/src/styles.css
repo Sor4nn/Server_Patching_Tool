@@ -294,6 +294,82 @@ body {
   background: rgba(255, 255, 255, 0.2);
 }
 
+/* ---------- Searchable host combobox ---------- */
+.host-search {
+  position: relative;
+  width: 260px;
+}
+
+.host-search input {
+  padding-left: 30px;
+  padding-right: 26px;
+}
+
+.host-search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-dim);
+  pointer-events: none;
+}
+
+.host-search-clear {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.host-search-clear:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.host-search-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 260px;
+  overflow-y: auto;
+  background: var(--bg-card, #0d1424);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  z-index: 60;
+  padding: 4px;
+}
+
+.host-search-item {
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 12.5px;
+  color: var(--text-dim);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.host-search-item:hover,
+.host-search-item.active {
+  background: rgba(59, 130, 246, 0.18);
+  color: var(--text);
+}
+
 .nav-item-group {
   display: flex;
   flex-direction: column;

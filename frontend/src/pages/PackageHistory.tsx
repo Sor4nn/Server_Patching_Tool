@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../api'
 import type { Host, PackageDiff, PackageDiffItem, PackageSnapshot } from '../types'
-import { IconRefresh } from '../components/Icons'
+import { IconRefresh, IconSearch } from '../components/Icons'
 
 function fmt(iso: string) {
   return new Date(iso).toLocaleString()
@@ -11,6 +11,109 @@ function kindBadge(kind: string) {
   return kind === 'baseline'
     ? <span className="badge badge-blue">Baseline</span>
     : <span className="badge badge-gray">Report</span>
+}
+
+function hostLabel(h: Host) {
+  return h.friendly_name || h.hostname
+}
+
+function HostSearch({ hosts, hostId, onSelect }: {
+  hosts: Host[]
+  hostId: number | null
+  onSelect: (id: number | null) => void
+}) {
+  const selected = hosts.find((h) => h.id === hostId) || null
+  const [query, setQuery] = useState('')
+  const [open, setOpen] = useState(false)
+  const [active, setActive] = useState(0)
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const value = open ? query : selected ? hostLabel(selected) : ''
+
+  const matches = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    if (!q) return hosts
+    return hosts.filter((h) =>
+      h.hostname.toLowerCase().includes(q) ||
+      (h.friendly_name || '').toLowerCase().includes(q))
+  }, [hosts, query])
+
+  useEffect(() => { setActive(0) }, [query])
+
+  useEffect(() => {
+    const onDoc = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [])
+
+  const choose = (h: Host | null) => {
+    onSelect(h ? h.id : null)
+    setQuery('')
+    setOpen(false)
+    inputRef.current?.blur()
+  }
+
+  return (
+    <div className="host-search" ref={wrapRef}>
+      <IconSearch size={14} className="host-search-icon" />
+      <input
+        ref={inputRef}
+        value={value}
+        placeholder="All hosts — type to search…"
+        onFocus={() => { setQuery(''); setOpen(true) }}
+        onChange={(e) => { setQuery(e.target.value); setOpen(true) }}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowDown') {
+            e.preventDefault()
+            setActive((i) => Math.min(i + 1, matches.length))
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault()
+            setActive((i) => Math.max(i - 1, 0))
+          } else if (e.key === 'Enter') {
+            e.preventDefault()
+            if (active === 0) choose(null)
+            else if (matches[active - 1]) choose(matches[active - 1])
+          } else if (e.key === 'Escape') {
+            setOpen(false)
+            inputRef.current?.blur()
+          }
+        }}
+      />
+      {selected && !open && (
+        <button type="button" className="host-search-clear" title="Clear (all hosts)" onClick={() => choose(null)}>
+          ×
+        </button>
+      )}
+      {open && (
+        <div className="host-search-menu">
+          <div
+            className={`host-search-item ${active === 0 ? 'active' : ''}`}
+            onMouseDown={(e) => { e.preventDefault(); choose(null) }}
+          >
+            All hosts
+          </div>
+          {matches.map((h, i) => (
+            <div
+              key={h.id}
+              className={`host-search-item ${active === i + 1 ? 'active' : ''}`}
+              onMouseDown={(e) => { e.preventDefault(); choose(h) }}
+            >
+              {hostLabel(h)}
+              {h.friendly_name && h.hostname !== h.friendly_name && (
+                <span className="muted mono" style={{ fontSize: 11 }}> · {h.hostname}</span>
+              )}
+            </div>
+          ))}
+          {matches.length === 0 && (
+            <div className="host-search-item muted">No matching server</div>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 function DiffTable({ title, items, tone }: { title: string; items: PackageDiffItem[]; tone: 'add' | 'del' | 'chg' }) {
@@ -127,10 +230,7 @@ export default function PackageHistory() {
       {error && <div className="login-error">{error}</div>}
 
       <div className="flex" style={{ gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
-        <select value={hostId ?? ''} onChange={(e) => setHostId(e.target.value ? Number(e.target.value) : null)} style={{ width: 'auto' }}>
-          <option value="">All hosts</option>
-          {hosts.map((h) => <option key={h.id} value={h.id}>{h.friendly_name || h.hostname}</option>)}
-        </select>
+        <HostSearch hosts={hosts} hostId={hostId} onSelect={setHostId} />
         <span className="muted" style={{ alignSelf: 'center' }}>Compare</span>
         <select value={fromId} onChange={(e) => setFromId(e.target.value)} style={{ width: 'auto' }}>
           <option value="">Select (older)…</option>
