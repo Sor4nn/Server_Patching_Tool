@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { api } from '../api'
 import { useAuth } from '../App'
 import type { Credential, ExecutionEnvironment, Host, JobTemplate } from '../types'
-import { IconPlay, IconPlus, IconTrash } from '../components/Icons'
+import { IconPlay, IconPlus, IconTrash, IconEdit } from '../components/Icons'
 
 export default function Templates() {
   const { user } = useAuth()
@@ -11,6 +11,7 @@ export default function Templates() {
   const [hosts, setHosts] = useState<Host[]>([])
   const [error, setError] = useState('')
   const [showCreate, setShowCreate] = useState(false)
+  const [editTpl, setEditTpl] = useState<JobTemplate | null>(null)
   const [runTpl, setRunTpl] = useState<JobTemplate | null>(null)
 
   const load = async () => {
@@ -79,9 +80,14 @@ export default function Templates() {
                       <IconPlay size={12} /> Run
                     </button>
                     {isAdmin && (
-                      <button type="button" className="btn btn-sm btn-danger" onClick={() => remove(t.id)} title="Delete template">
-                        <IconTrash size={13} />
-                      </button>
+                      <>
+                        <button type="button" className="btn btn-sm" onClick={() => setEditTpl(t)} title="Edit template">
+                          <IconEdit size={13} />
+                        </button>
+                        <button type="button" className="btn btn-sm btn-danger" onClick={() => remove(t.id)} title="Delete template">
+                          <IconTrash size={13} />
+                        </button>
+                      </>
                     )}
                   </td>
                 </tr>
@@ -97,21 +103,36 @@ export default function Templates() {
       </div>
 
       {showCreate && <CreateTemplateModal onClose={() => setShowCreate(false)} onCreated={load} />}
+      {editTpl && <EditTemplateModal key={editTpl.id} template={editTpl} onClose={() => setEditTpl(null)} onSaved={load} />}
       {runTpl && <RunTemplateModal key={runTpl.id} template={runTpl} hosts={hosts} onClose={() => setRunTpl(null)} />}
     </div>
   )
 }
 
 function CreateTemplateModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
+  return <TemplateFormModal mode="create" onClose={onClose} onDone={onCreated} />
+}
+
+function EditTemplateModal({ template, onClose, onSaved }: { template: JobTemplate; onClose: () => void; onSaved: () => void }) {
+  return <TemplateFormModal mode="edit" template={template} onClose={onClose} onDone={onSaved} />
+}
+
+function TemplateFormModal({ mode, template, onClose, onDone }: {
+  mode: 'create' | 'edit'
+  template?: JobTemplate
+  onClose: () => void
+  onDone: () => void
+}) {
+  const isEdit = mode === 'edit'
   const [form, setForm] = useState({
-    name: '',
-    description: '',
-    playbook: 'ansible_scripts/collect_packages.yml',
-    repo_url: '',
-    branch: 'main',
-    credential_id: '',
-    execution_environment_id: '',
-    enabled: true,
+    name: template?.name || '',
+    description: template?.description || '',
+    playbook: template?.playbook || 'ansible_scripts/collect_packages.yml',
+    repo_url: template?.repo_url || '',
+    branch: template?.branch || 'main',
+    credential_id: template?.credential_id ? String(template.credential_id) : '',
+    execution_environment_id: template?.execution_environment_id ? String(template.execution_environment_id) : '',
+    enabled: template ? !!template.enabled : true,
   })
   const [credentials, setCredentials] = useState<Credential[]>([])
   const [environments, setEnvironments] = useState<ExecutionEnvironment[]>([])
@@ -131,7 +152,7 @@ function CreateTemplateModal({ onClose, onCreated }: { onClose: () => void; onCr
     setBusy(true)
     setError('')
     try {
-      await api.createTemplate({
+      const body: Record<string, unknown> = {
         name: form.name,
         description: form.description || null,
         playbook: form.playbook,
@@ -140,11 +161,16 @@ function CreateTemplateModal({ onClose, onCreated }: { onClose: () => void; onCr
         credential_id: form.credential_id ? Number(form.credential_id) : null,
         execution_environment_id: form.execution_environment_id ? Number(form.execution_environment_id) : null,
         enabled: form.enabled ? 1 : 0,
-      })
-      onCreated()
+      }
+      if (isEdit && template) {
+        await api.updateTemplate(template.id, body)
+      } else {
+        await api.createTemplate(body)
+      }
+      onDone()
       onClose()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Create failed')
+      setError(e instanceof Error ? e.message : 'Save failed')
     } finally {
       setBusy(false)
     }
@@ -153,7 +179,7 @@ function CreateTemplateModal({ onClose, onCreated }: { onClose: () => void; onCr
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal modal-lg" onClick={(e) => e.stopPropagation()}>
-        <h3 className="page-title" style={{ marginBottom: 12 }}>New Template</h3>
+        <h3 className="page-title" style={{ marginBottom: 12 }}>{isEdit ? 'Edit Template' : 'New Template'}</h3>
         {error && <div className="login-error">{error}</div>}
         <label className="form-label">Name</label>
         <input className="form-input" value={form.name} onChange={(e) => set('name', e.target.value)} placeholder="e.g. Collect package inventory" />
@@ -194,7 +220,7 @@ function CreateTemplateModal({ onClose, onCreated }: { onClose: () => void; onCr
         <div className="modal-actions">
           <button type="button" className="btn" onClick={onClose}>Cancel</button>
           <button type="button" className="btn btn-primary" onClick={submit} disabled={busy}>
-            {busy ? 'Saving…' : 'Create Template'}
+            {busy ? 'Saving…' : (isEdit ? 'Save Changes' : 'Create Template')}
           </button>
         </div>
       </div>
