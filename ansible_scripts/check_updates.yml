@@ -5,33 +5,7 @@
   tasks:
     - name: Collect installed and available RPM packages with update status
       command: >-
-        python3 -c "import subprocess, json
-        def run(cmd):
-            try: return subprocess.check_output(cmd, stderr=subprocess.DEVNULL).decode().strip().splitlines()
-            except Exception: return []
-        installed = []
-        for line in run(['rpm', '-qa', '--queryformat', '%{NAME}|%{VERSION}|%{RELEASE}|%{ARCH}|%{INSTALLTIME}\\n']):
-            p = line.split('|')
-            if len(p) >= 4:
-                installed.append({'name': p[0], 'version': p[1], 'release': p[2], 'arch': p[3], 'installed_at': p[4] if len(p)>4 else ''})
-        updates_map = {}
-        for line in run(['dnf', 'check-update', '--quiet', '--security=false']):
-            parts = line.split()
-            if len(parts) >= 2:
-                name = '.'.join(parts[0].split('.')[:-1]) if '.' in parts[0] else parts[0]
-                updates_map[name] = parts[1]
-        sec_set = set()
-        for line in run(['dnf', 'check-update', '--quiet', '--security']):
-            parts = line.split()
-            if len(parts) >= 1:
-                name = '.'.join(parts[0].split('.')[:-1]) if '.' in parts[0] else parts[0]
-                sec_set.add(name)
-        for pkg in installed:
-            name = pkg['name']
-            pkg['available_version'] = updates_map.get(name, '')
-            pkg['needs_update'] = name in updates_map
-            pkg['is_security_update'] = name in sec_set
-        print(json.dumps(installed))"
+        python3 -c "import subprocess,json;R=lambda c:(subprocess.check_output(c,stderr=subprocess.DEVNULL).decode().strip().splitlines() if subprocess.run(c,stdout=subprocess.DEVNULL).returncode==0 else []);inst=[{'name':p[0],'version':p[1],'release':p[2],'arch':p[3],'installed_at':p[4] if len(p)>4 else ''} for line in R(['rpm','-qa','--queryformat','%{NAME}|%{VERSION}|%{RELEASE}|%{ARCH}|%{INSTALLTIME}\n']) for p in [line.split('|')] if len(p)>=4];um={};[um.update({'.'.join(l.split()[0].split('.')[:-1]) if '.' in l.split()[0] else l.split()[0]: l.split()[1]}) for l in R(['dnf','check-update','--quiet','--security=false']) if len(l.split())>=2];ss=set('.'.join(l.split()[0].split('.')[:-1]) if '.' in l.split()[0] else l.split()[0] for l in R(['dnf','check-update','--quiet','--security']) if l.split());[p.update({'available_version':um.get(p['name'],''),'needs_update':p['name'] in um,'is_security_update':p['name'] in ss}) for p in inst];print(json.dumps(inst))"
       become: no
       register: pkgs_json
       ignore_errors: yes

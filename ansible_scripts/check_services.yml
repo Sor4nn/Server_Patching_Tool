@@ -7,41 +7,14 @@
   tasks:
     - name: Query systemd service status for critical services
       command: >-
-        python3 -c "import subprocess, json, shlex
-        svcs = {{ critical_services | to_json }}
-        out = []
-        for s in svcs:
-            try:
-                txt = subprocess.check_output(['systemctl', 'show', s, '-p', 'LoadState,ActiveState,SubState', '--value'], stderr=subprocess.DEVNULL, text=True)
-                parts = txt.strip().splitlines()
-                ls, as_, ss = (parts + ['','',''])[:3]
-            except Exception:
-                ls, as_, ss = 'error', 'unknown', 'unknown'
-            out.append({'service_name': s, 'load_state': ls, 'active_state': as_, 'sub_state': ss})
-        print(json.dumps(out))"
+        python3 -c "import subprocess,json;svcs={{ critical_services | to_json }};out=[];[out.append({'service_name':s,'load_state':(subprocess.check_output(['systemctl','show',s,'-p','LoadState,ActiveState,SubState','--value'],stderr=subprocess.DEVNULL,text=True).strip().splitlines()+['','',''])[:3][0],'active_state':(subprocess.check_output(['systemctl','show',s,'-p','LoadState,ActiveState,SubState','--value'],stderr=subprocess.DEVNULL,text=True).strip().splitlines()+['','',''])[:3][1],'sub_state':(subprocess.check_output(['systemctl','show',s,'-p','LoadState,ActiveState,SubState','--value'],stderr=subprocess.DEVNULL,text=True).strip().splitlines()+['','',''])[:3][2]}) if subprocess.run(['systemctl','show',s],stdout=subprocess.DEVNULL).returncode==0 else out.append({'service_name':s,'load_state':'error','active_state':'unknown','sub_state':'unknown'}) for s in svcs];print(json.dumps(out))"
       become: no
       register: services_json
       ignore_errors: yes
 
     - name: Collect filesystem usage (df)
       command: >-
-        python3 -c "import subprocess, json
-        out = []
-        try:
-            lines = subprocess.check_output(['df', '-P', '-k'], stderr=subprocess.DEVNULL, text=True).splitlines()[1:]
-        except Exception:
-            lines = []
-        for line in lines:
-            p = line.split()
-            if len(p) < 6:
-                continue
-            device, size, used, avail, usep, mount = p[0], p[1], p[2], p[3], p[4], p[5]
-            try:
-                use_int = int(usep.rstrip('%'))
-            except Exception:
-                use_int = 0
-            out.append({'mount': mount, 'device': device, 'fs_type': '', 'size_kb': int(size), 'used_kb': int(used), 'avail_kb': int(avail), 'use_pct': use_int})
-        print(json.dumps(out))"
+        python3 -c "import subprocess,json;out=[];lines=(subprocess.check_output(['df','-P','-k'],stderr=subprocess.DEVNULL,text=True).splitlines()[1:] if subprocess.run(['df','-P','-k'],stdout=subprocess.DEVNULL).returncode==0 else []);[out.append({'mount':p[5],'device':p[0],'fs_type':'','size_kb':int(p[1]),'used_kb':int(p[2]),'avail_kb':int(p[3]),'use_pct':int(p[4].rstrip('%')) if p[4].rstrip('%').isdigit() else 0}) for line in lines for p in [line.split()] if len(p)>=6];print(json.dumps(out))"
       become: no
       register: fs_json
       ignore_errors: yes
