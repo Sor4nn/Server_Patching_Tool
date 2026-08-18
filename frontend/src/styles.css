@@ -267,6 +267,33 @@ body {
   color: #fff;
 }
 
+.nav-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-dim);
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.nav-toggle:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.nav-item.active .nav-toggle {
+  color: #ffffff;
+}
+
+.nav-item.active .nav-toggle:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
 .nav-item-group {
   display: flex;
   flex-direction: column;

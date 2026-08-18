@@ -16,6 +16,7 @@ import {
   IconSettings,
   IconChevronRight,
   IconChevronLeft,
+  IconChevronDown,
   IconPlus,
 } from './components/Icons'
 
@@ -59,6 +60,7 @@ function Layout() {
   const { user, setUser } = useAuth()
   const navigate = useNavigate()
   const [collapsed, setCollapsed] = useState(false)
+  const [packagesOpen, setPackagesOpen] = useState(true)
 
   const logout = async () => {
     await api.logout()
@@ -136,9 +138,27 @@ function Layout() {
             <div className="nav-item-group">
               <NavLink to="/packages" className="nav-item">
                 <span className="nav-icon"><IconPackage size={17} /></span>
-                {!collapsed && <span className="nav-label">Packages</span>}
+                {!collapsed && (
+                  <>
+                    <span className="nav-label">Packages</span>
+                    <div className="nav-badges">
+                      <button
+                        type="button"
+                        className="nav-toggle"
+                        title={packagesOpen ? 'Collapse' : 'Expand'}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          setPackagesOpen((v) => !v)
+                        }}
+                      >
+                        {packagesOpen ? <IconChevronDown size={12} /> : <IconChevronRight size={12} />}
+                      </button>
+                    </div>
+                  </>
+                )}
               </NavLink>
-              {!collapsed && (
+              {!collapsed && packagesOpen && (
                 <div className="nav-sub">
                   <NavLink to="/packages/dedicated" className="nav-subitem">
                     Unique Package Report
