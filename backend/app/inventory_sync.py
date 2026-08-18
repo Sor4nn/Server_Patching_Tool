@@ -66,12 +66,13 @@ def _clone_or_pull(source) -> None:
                        check=True, capture_output=True, timeout=120, env=env, text=True,
                        cwd=str(config.DATA_DIR))
         return
-    # Already cloned: fetch + checkout the branch
-    subprocess.run(["git", "-C", str(repo_dir), "fetch", "origin",
-                    f"{source['branch'] or DEFAULT_BRANCH}:"],
+    # Already cloned: fetch + reset the branch so the working tree follows
+    # origin. A bare `fetch <branch>` only touches FETCH_HEAD; checking out the
+    # local branch without advancing it leaves the tree stale forever.
+    branch = source["branch"] or DEFAULT_BRANCH
+    subprocess.run(["git", "-C", str(repo_dir), "fetch", "origin", branch],
                    check=True, capture_output=True, timeout=120, env=env, text=True)
-    subprocess.run(["git", "-C", str(repo_dir), "checkout",
-                    source["branch"] or DEFAULT_BRANCH],
+    subprocess.run(["git", "-C", str(repo_dir), "checkout", "-f", "-B", branch, f"origin/{branch}"],
                    check=True, capture_output=True, timeout=60, env=env, text=True)
 
 

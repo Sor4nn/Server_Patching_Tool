@@ -42,6 +42,44 @@ def _fake_repo(source):
     )
 
 
+def test_pull_advances_stale_clone(tmp_path, monkeypatch):
+    """_clone_or_pull must update an existing clone on later syncs.
+
+    A pull that only fetches into FETCH_HEAD and checks out the local branch
+    leaves the tree pinned to the original clone — new files never arrive.
+    """
+    import shutil
+    import subprocess
+
+    repo_dir = invsync._repo_dir({"id": 999})
+    monkeypatch.setattr(invsync, "_repo_dir", lambda source: repo_dir / str(source["id"] or "0"))
+    repo_dir.mkdir(parents=True, exist_ok=True)
+    remote = tmp_path / "remote"
+    remote.mkdir()
+    ident = ["-c", "user.email=test@test.local", "-c", "user.name=test"]
+
+    subprocess.run(["git", "-C", str(remote), "init", "-b", "main"], check=True, capture_output=True)
+    (remote / "a.txt").write_text("a")
+    subprocess.run(["git", "-C", str(remote), "add", "."], check=True, capture_output=True)
+    subprocess.run(["git", "-C", str(remote)] + ident + ["commit", "-m", "a"],
+                   check=True, capture_output=True)
+
+    source = {"id": 999, "repo_url": f"file://{remote}", "branch": "main",
+              "auth_type": "none", "username": "", "password": "", "token": ""}
+    invsync._clone_or_pull(source)
+    assert (invsync._repo_dir(source) / "a.txt").exists()
+
+    (remote / "b.txt").write_text("b")
+    subprocess.run(["git", "-C", str(remote), "add", "."], check=True, capture_output=True)
+    subprocess.run(["git", "-C", str(remote)] + ident + ["commit", "-m", "b"],
+                   check=True, capture_output=True)
+
+    invsync._clone_or_pull(source)
+    assert (invsync._repo_dir(source) / "b.txt").exists()
+
+    shutil.rmtree(repo_dir, ignore_errors=True)
+
+
 def test_add_repo_sync_discovers_hosts_and_playbooks(client, login, monkeypatch):
     monkeypatch.setattr(invsync, "_clone_or_pull", lambda source: _fake_repo(source))
 
