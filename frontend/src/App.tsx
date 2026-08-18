@@ -10,9 +10,7 @@ import {
   IconShield,
   IconDocker,
   IconPlay,
-  IconBandage,
   IconFileText,
-  IconBot,
   IconSettings,
   IconChevronRight,
   IconChevronLeft,
@@ -152,39 +150,9 @@ function Layout() {
             </NavLink>
           </div>
 
-          {/* OPERATIONS */}
-          <div className="nav-group">
-            {!collapsed && <div className="nav-group-title">Operations</div>}
-
-            <NavLink to="/patching" className="nav-item">
-              <span className="nav-icon"><IconBandage size={17} /></span>
-              {!collapsed && <span className="nav-label">Patching</span>}
-            </NavLink>
-
-            <NavLink to="/compliance" className="nav-item">
-              <span className="nav-icon"><IconShield size={17} /></span>
-              {!collapsed && <span className="nav-label">Compliance</span>}
-            </NavLink>
-
-            <NavLink to="/reporting" className="nav-item">
-              <span className="nav-icon"><IconFileText size={17} /></span>
-              {!collapsed && <span className="nav-label">Reporting</span>}
-            </NavLink>
-
-            <NavLink to="/services" className="nav-item">
-              <span className="nav-icon"><IconDocker size={17} /></span>
-              {!collapsed && <span className="nav-label">Services</span>}
-            </NavLink>
-          </div>
-
           {/* SYSTEM */}
           <div className="nav-group">
             {!collapsed && <div className="nav-group-title">System</div>}
-
-            <NavLink to="/automation" className="nav-item">
-              <span className="nav-icon"><IconBot size={17} /></span>
-              {!collapsed && <span className="nav-label">Automation</span>}
-            </NavLink>
 
             <NavLink to="/settings" className="nav-item">
               <span className="nav-icon"><IconSettings size={17} /></span>
