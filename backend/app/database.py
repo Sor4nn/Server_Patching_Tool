@@ -267,6 +267,7 @@ def init_db():
     conn.execute("ALTER TABLE inventory_sources ADD COLUMN IF NOT EXISTS playbook_pattern TEXT NOT NULL DEFAULT 'ansible_scripts/*.yml'")
     conn.execute("ALTER TABLE templates ADD COLUMN IF NOT EXISTS inventory_source_id INTEGER REFERENCES inventory_sources(id) ON DELETE CASCADE")
     conn.execute("ALTER TABLE host_packages ADD COLUMN IF NOT EXISTS cves TEXT")
+    conn.execute("ALTER TABLE patch_runs ADD COLUMN IF NOT EXISTS output TEXT")
     conn.commit()
 
     # Seed host groups

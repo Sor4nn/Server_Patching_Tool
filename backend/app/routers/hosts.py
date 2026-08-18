@@ -117,7 +117,6 @@ def update_host(host_id: int, body: HostUpdate, user: dict = Depends(require_adm
     if not sets:
         conn.close()
         raise HTTPException(status_code=400, detail="No fields to update")
-    params.append(host_id)
     conn.execute(f"UPDATE hosts SET {', '.join(sets)}, updated_at = %s WHERE id = %s", params + [database.now_iso(), host_id])
     conn.commit()
     row = conn.execute("SELECT * FROM hosts WHERE id = %s", (host_id,)).fetchone()

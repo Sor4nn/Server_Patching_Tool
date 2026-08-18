@@ -70,7 +70,13 @@ export const api = {
     }),
   listRuns: () => request<{ success: boolean; runs: PatchRun[] }>('/patching/runs'),
   getRun: (id: number) => request<{ success: boolean; run: PatchRun }>(`/patching/runs/${id}`),
+  getRunOutput: (id: number) => request<{ success: boolean; run: PatchRun & { output?: string } }>(`/patching/runs/${id}/output`),
   refreshRun: (id: number) => request<{ success: boolean; run: PatchRun }>(`/patching/runs/${id}/refresh`, { method: 'POST' }),
+  runAction: (body: { action: string; host_ids?: number[]; group_ids?: number[]; hostnames?: string }) =>
+    request<{ success: boolean; run: PatchRun; error?: string }>('/patching/run', {
+      method: 'POST',
+      body: JSON.stringify(body),
+    }),
 
   listPackages: (params = '') => request<{ success: boolean; packages: PackageAggregate[]; total: number; categories: { name: string }[] }>(`/packages${params}`),
   packageCategories: () => request<{ success: boolean; categories: string[] }>('/packages/categories'),

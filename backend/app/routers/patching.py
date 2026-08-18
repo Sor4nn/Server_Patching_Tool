@@ -1,4 +1,5 @@
 import json
+import threading
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -15,6 +16,13 @@ class TriggerRun(BaseModel):
     template_id: int
     host_ids: Optional[list[int]] = None
     extra_vars: Optional[str] = None
+
+
+class RunAction(BaseModel):
+    action: str  # snapshot | patching | check_packages | pending_update
+    host_ids: Optional[list[int]] = None
+    group_ids: Optional[list[int]] = None
+    hostnames: Optional[str] = None  # comma-separated hostname / IP / friendly name
 
 
 def _new_run_id() -> str:
@@ -73,6 +81,25 @@ def run_detail(run_id: int, _user: dict = Depends(current_user)):
     if not row:
         raise HTTPException(status_code=404, detail="Run not found")
     return {"success": True, "run": _run_to_dict(row)}
+
+
+@router.get("/runs/{run_id}/output")
+def run_output(run_id: int, _user: dict = Depends(current_user)):
+    """Live tail of a run's playbook output (streamed while running)."""
+    conn = database.get_connection()
+    row = conn.execute("SELECT * FROM patch_runs WHERE id = %s", (run_id,)).fetchone()
+    conn.close()
+    if not row:
+        raise HTTPException(status_code=404, detail="Run not found")
+    output = row.get("output") or ""
+    if (row["status"] or "").lower() in ("running", "pending"):
+        log = config.RUNS_DIR / row["run_id"] / "artifacts" / "stdout.log"
+        if log.exists():
+            try:
+                output = log.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                pass
+    return {"success": True, "run": {**dict(row), "output": output}}
 
 
 @router.post("/runs")
@@ -285,6 +312,154 @@ def trigger(body: TriggerRun, user: dict = Depends(require_admin)):
     finally:
         conn.close()
     return result
+
+
+ACTION_TEMPLATE_HINTS = {
+    "snapshot": ("snapshot", "onepatch"),
+    "patching": ("apply", "patching", "onepatch"),
+    "check_packages": ("collect_packages",),
+    "pending_update": ("check_updates",),
+}
+
+ACTION_BUTTON_KEYS = {
+    "snapshot": "snapshot",
+    "patching": "apply",
+    "check_packages": "check_packages",
+    "pending_update": "pending_update",
+}
+
+
+def _resolve_template(conn, action: str) -> Optional[dict]:
+    """Map an action keyword to a DB template by button binding, then name, then playbook."""
+    key = ACTION_BUTTON_KEYS.get(action, action)
+    row = conn.execute("SELECT template_id FROM button_bindings WHERE button_key = %s", (key,)).fetchone()
+    if row and row["template_id"]:
+        tpl = conn.execute("SELECT * FROM templates WHERE id = %s AND enabled = 1", (row["template_id"],)).fetchone()
+        if tpl:
+            return dict(tpl)
+    hints = ACTION_TEMPLATE_HINTS.get(action, (action,))
+    for tpl in conn.execute("SELECT * FROM templates WHERE enabled = 1 ORDER BY id").fetchall():
+        name = (tpl["name"] or "").lower()
+        playbook = (tpl["playbook"] or "").lower()
+        for h in hints:
+            if h in name or h in playbook:
+                return dict(tpl)
+    return None
+
+
+def _hosts_by_targets(conn, body: RunAction) -> list[dict]:
+    """Resolve host_ids + group_ids + comma-separated hostnames into host rows."""
+    ids = set(body.host_ids or [])
+    for gid in (body.group_ids or []):
+        for r in conn.execute("SELECT id FROM hosts WHERE group_id = %s", (gid,)).fetchall():
+            ids.add(r["id"])
+    if body.hostnames:
+        for chunk in body.hostnames.split(","):
+            name = chunk.strip()
+            if not name:
+                continue
+            r = conn.execute(
+                "SELECT id FROM hosts WHERE hostname = %s OR ip_address = %s OR friendly_name = %s",
+                (name, name, name),
+            ).fetchone()
+            if r:
+                ids.add(r["id"])
+    if not ids:
+        return []
+    placeholders = ",".join(["%s"] * len(ids))
+    rows = conn.execute(f"SELECT hostname, ip_address FROM hosts WHERE id IN ({placeholders})", sorted(ids)).fetchall()
+    return [dict(r) for r in rows]
+
+
+def run_local_playbook_async(*, conn, run_id, repo_url, branch, playbook, hostnames, extra_vars, username, run_type,
+                             template_id=None, template_name=None, execution_environment=None,
+                             credential=None, output_file=None) -> dict:
+    """Record a run as running, then execute the playbook in a background thread.
+
+    Output streams to `output_file` live so the UI can tail it while running;
+    the full output is persisted to patch_runs.output when finished.
+    """
+    extra_vars = dict(extra_vars or {})
+    extra_vars["host_group"] = ",".join(_host_name(h) for h in hostnames) if hostnames else "localhost"
+    playbook = (playbook or extra_vars.pop("playbook", None)
+                or local_runner.PLAYBOOK_BY_RUN_TYPE.get(run_type, "onepatch_execution.yml"))
+    now = database.now_iso()
+    cur = conn.execute(
+        "INSERT INTO patch_runs (run_id, template_id, template_name, status, type, extra_vars, host_count, created_by, created_at, started_at) "
+        "VALUES (%s, %s, %s, 'running', %s, %s, %s, %s, %s, %s) RETURNING id",
+        (run_id, template_id, template_name or playbook, run_type, json.dumps(extra_vars), len(hostnames), username, now, now),
+    )
+    conn.commit()
+    row_id = cur.fetchone()["id"]
+
+    def _worker():
+        result = local_runner.run_playbook(
+            run_id=run_id, repo_url=repo_url, branch=branch, playbook=playbook,
+            hostnames=hostnames, extra_vars=extra_vars,
+            execution_environment=execution_environment, credential=credential,
+            output_file=output_file,
+        )
+        wconn = database.get_connection()
+        try:
+            status = "successful" if result.get("success") else "failed"
+            wconn.execute(
+                "UPDATE patch_runs SET status = %s, finished_at = %s, output = %s WHERE id = %s",
+                (status, database.now_iso(), result.get("output") or "", row_id),
+            )
+            wconn.commit()
+        finally:
+            wconn.close()
+
+    threading.Thread(target=_worker, daemon=True).start()
+    run = conn.execute("SELECT * FROM patch_runs WHERE id = %s", (row_id,)).fetchone()
+    return {"success": True, "run": _run_to_dict(run)}
+
+
+@router.post("/run")
+def run_action(body: RunAction, user: dict = Depends(require_admin)):
+    """Run a patching action (snapshot/patching/check_packages/pending_update) against targets.
+
+    Targets: explicit host_ids, host_groups by id, and/or comma-separated
+    hostnames / IPs / friendly names. The playbook streams live to the run's
+    output endpoint and the final output is persisted in patch_runs.
+    """
+    conn = database.get_connection()
+    try:
+        hostnames = _hosts_by_targets(conn, body)
+        if not hostnames:
+            raise HTTPException(status_code=400, detail="No matching hosts — check host_ids, groups, or the host list")
+        tpl = _resolve_template(conn, body.action)
+        if not tpl:
+            raise HTTPException(status_code=400, detail=f"No enabled template matches action '{body.action}'")
+        option = _active_connection()
+        repo_url = tpl.get("repo_url") or (option or {}).get("url") or ""
+        branch = tpl.get("branch") or (option or {}).get("branch") or "main"
+
+        credential = None
+        if tpl.get("credential_id"):
+            c = conn.execute("SELECT name, credential_type, username, password, private_key FROM credentials WHERE id = %s",
+                             (tpl["credential_id"],)).fetchone()
+            if c:
+                credential = dict(c)
+        ee = None
+        if tpl.get("execution_environment_id"):
+            ee_row = conn.execute("SELECT name FROM execution_environments WHERE id = %s",
+                                  (tpl["execution_environment_id"],)).fetchone()
+            if ee_row:
+                ee = ee_row["name"]
+
+        run_id = _new_run_id()
+        output_file = str(config.RUNS_DIR / run_id / "artifacts" / "stdout.log")
+        result = run_local_playbook_async(
+            conn=conn, run_id=run_id, repo_url=repo_url, branch=branch,
+            playbook=tpl["playbook"], hostnames=hostnames, extra_vars={},
+            username=user["username"], run_type=body.action,
+            template_id=tpl["id"], template_name=tpl["name"],
+            execution_environment=ee, credential=credential, output_file=output_file,
+        )
+        return result
+    finally:
+        conn.close()
 
 
 @router.post("/runs/{run_id}/refresh")

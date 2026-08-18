@@ -77,6 +77,7 @@ export interface PatchRun {
   started_at: string | null
   finished_at: string | null
   created_at: string
+  output?: string | null
 }
 
 export interface HostPackage {

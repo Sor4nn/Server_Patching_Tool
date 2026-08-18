@@ -30,6 +30,7 @@ import RepoForm from './pages/RepoForm'
 import ExecutionEnvironments from './pages/ExecutionEnvironments'
 import Integration from './pages/Integration'
 import Patching from './pages/Patching'
+import PatchingRun from './pages/PatchingRun'
 import Packages from './pages/Packages'
 import Policies from './pages/Policies'
 import Settings from './pages/Settings'
@@ -181,6 +182,9 @@ function Layout() {
                   <NavLink to="/patching" end className="nav-subitem">
                     Overview
                   </NavLink>
+                  <NavLink to="/patching/run" className="nav-subitem">
+                    Run
+                  </NavLink>
                   <NavLink to="/integration" className="nav-subitem">
                     Runs & History
                   </NavLink>
@@ -284,6 +288,7 @@ function Layout() {
             <Route path="/templates" element={<Templates />} />
             <Route path="/credentials" element={<Credentials />} />
             <Route path="/patching" element={<Patching />} />
+            <Route path="/patching/run" element={<PatchingRun />} />
             <Route path="/integration" element={<Integration />} />
             <Route path="/packages" element={<Packages />} />
             <Route path="/automation-options" element={<Policies />} />

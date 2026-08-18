@@ -95,8 +95,13 @@ def _connection_vars(credential: dict | None) -> tuple[list[str], str | None]:
 def run_playbook(*, run_id: str, repo_url: str, branch: str, playbook: str,
                  hostnames: list[str], extra_vars: dict,
                  execution_environment: str | None = None,
-                 credential: dict | None = None) -> dict:
+                 credential: dict | None = None,
+                 output_file: str | None = None) -> dict:
     """Execute a playbook via ansible-runner in a Docker execution environment.
+
+    When `output_file` is given, the combined stdout/stderr is streamed to that
+    file live as the playbook runs (used for the live terminal view); the same
+    text is still returned in `output`.
 
     Returns dict(result): success, exit_code, output, artifacts_dir.
     """
@@ -149,6 +154,29 @@ def run_playbook(*, run_id: str, repo_url: str, branch: str, playbook: str,
         "-v", f"{run_dir}:/runner:z", "--network", "host",
         image, "ansible-runner", "run", "/runner", "-p", playbook,
     ]
+
+    if output_file:
+        out_path = Path(output_file)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(out_path, "w", encoding="utf-8") as logf:
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+            assert proc.stdout is not None
+            for line in proc.stdout:
+                logf.write(line)
+                logf.flush()
+            try:
+                proc.wait(timeout=600)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
+            output = out_path.read_text(encoding="utf-8", errors="replace")
+            return {
+                "success": proc.returncode == 0,
+                "exit_code": proc.returncode,
+                "output": output,
+                "artifacts_dir": str(run_dir / "artifacts"),
+                "image": image,
+            }
 
     proc = subprocess.run(cmd, capture_output=True, text=True, timeout=600)
     output = (proc.stdout or "") + (proc.stderr or "")

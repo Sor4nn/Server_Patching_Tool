@@ -1,8 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
-import { useAuth } from '../App'
-import type { ButtonBinding, Host, JobTemplate, PatchPolicy, PatchRun, PatchTreeNode } from '../types'
+import type { ButtonBinding, Host, PatchPolicy, PatchRun, PatchTreeNode } from '../types'
 import { DonutChart, type DonutSegment } from '../components/DonutChart'
 import {
   IconList,
@@ -39,12 +38,9 @@ function timeAgo(dateString?: string) {
 }
 
 export default function Patching() {
-  const { user } = useAuth()
-  const isAdmin = user?.is_admin === 1
   const [activeTab, setActiveTab] = useState<'overview' | 'runs' | 'policies' | 'tree'>('overview')
   const [tree, setTree] = useState<PatchTreeNode[]>([])
   const [buttons, setButtons] = useState<ButtonBinding[]>([])
-  const [templates, setTemplates] = useState<JobTemplate[]>([])
   const [runs, setRuns] = useState<PatchRun[]>([])
   const [policies, setPolicies] = useState<PatchPolicy[]>([])
   const [hosts, setHosts] = useState<Host[]>([])
@@ -55,17 +51,15 @@ export default function Patching() {
   const [error, setError] = useState('')
 
   const load = useCallback(async () => {
-    const [t, b, tmpl, r, p, h] = await Promise.all([
+    const [t, b, r, p, h] = await Promise.all([
       api.patchTree().catch(() => ({ success: false, tree: [] })),
       api.listButtons().catch(() => ({ success: false, buttons: [] })),
-      api.listTemplates().catch(() => ({ success: false, templates: [] })),
       api.listRuns().catch(() => ({ success: false, runs: [] })),
       api.listPolicies().catch(() => ({ success: false, policies: [] })),
       api.listHosts().catch(() => ({ success: false, hosts: [] })),
     ])
     setTree(t.tree || [])
     setButtons(b.buttons || [])
-    setTemplates((tmpl as { templates?: JobTemplate[] }).templates || [])
     setRuns(r.runs || [])
     setPolicies(p.policies || [])
     setHosts(h.hosts || [])
@@ -98,7 +92,7 @@ export default function Patching() {
     setError('')
     const binding = bindingFor.get(key)
     if (!binding?.template_id) {
-      setError(`No template bound to the "${buttonLabel(key)}" button — bind one below first.`)
+      setError(`No template bound to the "${buttonLabel(key)}" button — bind one in the Run page or Templates.`)
       setBusyKey('')
       return
     }
@@ -113,16 +107,6 @@ export default function Patching() {
       setError(err instanceof Error ? err.message : `${buttonLabel(key)} failed`)
     } finally {
       setBusyKey('')
-    }
-  }
-
-  const bind = async (key: string, templateId: number | null) => {
-    try {
-      await api.bindButton(key, { template_id: templateId, button_label: buttonLabel(key) })
-      setMessage(`Bound "${buttonLabel(key)}" button`)
-      load()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Bind failed')
     }
   }
 
@@ -681,34 +665,6 @@ export default function Patching() {
             )}
           </div>
 
-          {isAdmin && (
-            <div className="card">
-              <h2 className="card-title">Customize Action Buttons</h2>
-              <p className="muted" style={{ marginTop: 4, marginBottom: 16 }}>
-                Bind templates to the Apply and Snapshot action buttons.
-              </p>
-              {DEFAULT_BUTTONS.map((key) => {
-                const binding = bindingFor.get(key)
-                return (
-                  <div key={key} className="flex flex-between mb" style={{ borderBottom: '1px solid var(--border)', paddingBottom: 14 }}>
-                    <div style={{ fontWeight: 600, minWidth: 140 }}>{buttonLabel(key)}</div>
-                    <select
-                      value={binding?.template_id ?? ''}
-                      onChange={(e) => bind(key, e.target.value ? Number(e.target.value) : null)}
-                      style={{ maxWidth: 360 }}
-                    >
-                      <option value="">— none —</option>
-                      {templates.map((t) => <option key={t.id} value={t.id}>{t.id} — {t.name}</option>)}
-                    </select>
-                    {binding?.template_id && (
-                      <button type="button" className="btn btn-sm btn-danger" onClick={() => bind(key, null)}>Unbind</button>
-                    )}
-                  </div>
-                )
-              })}
-              {templates.length === 0 && <p className="muted">No templates found — sync a repo or create one.</p>}
-            </div>
-          )}
         </>
       )}
     </div>
