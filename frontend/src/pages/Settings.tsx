@@ -44,7 +44,6 @@ export default function Settings() {
   const [showCreateUser, setShowCreateUser] = useState(false)
   const [showCreateGroup, setShowCreateGroup] = useState(false)
   const [error, setError] = useState('')
-  const [message, setMessage] = useState('')
   const [selfRegistration, setSelfRegistration] = useState(false)
 
   const load = async () => {
@@ -87,7 +86,6 @@ export default function Settings() {
         </div>
       </div>
 
-      {message && <div className="login-error" style={{ background: 'rgba(34, 197, 94, 0.15)', color: '#4ade80', borderColor: 'rgba(34, 197, 94, 0.4)' }}>{message}</div>}
       {error && <div className="login-error">{error}</div>}
 
       <div className="settings-shell">
@@ -255,7 +253,7 @@ export default function Settings() {
                               </span>
                             </td>
                             <td className="muted flex" style={{ gap: 5 }}>
-                              <span style={{ fontSize: 11 }}>✉</span> {u.email || 'te4st@mail.com'}
+                              <span style={{ fontSize: 11 }}>✉</span> {u.email || '—'}
                             </td>
                             <td>
                               {isSuperAdmin ? (
@@ -271,8 +269,8 @@ export default function Settings() {
                                 ✓ Active
                               </span>
                             </td>
-                            <td className="muted">8/17/26</td>
-                            <td className="muted">{u.last_login ? u.last_login.slice(0, 10) : '8/17/26'}</td>
+                            <td className="muted">{u.created_at ? u.created_at.slice(0, 10) : '—'}</td>
+                            <td className="muted">{u.last_login ? u.last_login.slice(0, 10) : '—'}</td>
                             <td>
                               <div className="flex" style={{ gap: 6 }}>
                                 <button type="button" className="btn btn-ghost btn-sm" title="Edit Role" onClick={() => toggleAdmin(u)}>
@@ -320,9 +318,7 @@ export default function Settings() {
                 </div>
 
                 <div className="flex" style={{ justifyContent: 'flex-end', marginTop: 18 }}>
-                  <button type="button" className="btn btn-primary" onClick={() => setMessage('User registration settings saved successfully.')}>
-                    Save Settings
-                  </button>
+                  <span className="muted" style={{ fontSize: 12 }}>This toggle is not persisted to the server yet.</span>
                 </div>
               </div>
             </>
@@ -367,24 +363,6 @@ export default function Settings() {
             </div>
           )}
 
-          {/* TAB: BRANDING */}
-          {activeTab === 'branding' && (
-            <div className="card">
-              <h3 className="card-title">Branding Settings</h3>
-              <div className="form-row">
-                <label>Application Title</label>
-                <input defaultValue="PatchMon" />
-              </div>
-              <div className="form-row">
-                <label>Company Subtitle</label>
-                <input defaultValue="Linux Patch Management" />
-              </div>
-              <button type="button" className="btn btn-primary" onClick={() => setMessage('Branding updated.')}>
-                Save Branding
-              </button>
-            </div>
-          )}
-
           {/* TAB: SERVER VERSION */}
           {activeTab === 'server_version' && (
             <div className="card">
@@ -403,10 +381,10 @@ export default function Settings() {
           )}
 
           {/* OTHER TABS FALLBACK */}
-          {!['users', 'host_groups', 'branding', 'server_version'].includes(activeTab) && (
+          {!['users', 'host_groups', 'server_version'].includes(activeTab) && (
             <div className="card">
-              <h3 className="card-title" style={{ textTransform: 'capitalize' }}>{activeTab.replace('_', ' ')}</h3>
-              <p className="muted">Configuration and settings for {activeTab.replace('_', ' ')} are ready and active.</p>
+              <h3 className="card-title" style={{ textTransform: 'capitalize' }}>{activeTab === 'oidc' ? 'OIDC / SSO' : activeTab.replace('_', ' ')}</h3>
+              <p className="muted">Not implemented yet — this section is not available in this version.</p>
             </div>
           )}
         </div>

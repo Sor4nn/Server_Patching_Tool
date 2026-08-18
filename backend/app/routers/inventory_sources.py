@@ -51,7 +51,7 @@ def _validate(body: SourceCreate | SourceUpdate):
     if body.name is not None and not body.name.strip():
         raise HTTPException(status_code=400, detail="name is required")
     url = body.repo_url if hasattr(body, "repo_url") else getattr(body, "repo_url", None)
-    if url is not None and not (url.startswith(("http://", "https://", "git@", "ssh://"))):
+    if url is not None and not (url.startswith(("http://", "https://", "git@", "ssh://", "file://"))):
         raise HTTPException(status_code=400, detail="repo_url must be a git http(s)/ssh URL")
 
 

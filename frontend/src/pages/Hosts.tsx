@@ -9,9 +9,6 @@ import {
   IconRestart,
   IconWifi,
   IconSearch,
-  IconFilter,
-  IconColumns,
-  IconAlertTriangle,
   IconPlus,
   IconRefresh,
   IconRedHat,
@@ -144,23 +141,6 @@ export default function Hosts() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
-        </div>
-
-        <div className="flex" style={{ gap: 8 }}>
-          <button type="button" className="btn btn-sm">
-            <IconFilter size={14} /> Filters
-          </button>
-          <button type="button" className="btn btn-sm">
-            <IconColumns size={14} /> Columns
-          </button>
-          <select style={{ width: 'auto', padding: '5px 10px', fontSize: 12 }}>
-            <option>No Grouping</option>
-            <option>By Group</option>
-            <option>By OS</option>
-          </select>
-          <button type="button" className="btn btn-sm">
-            <IconAlertTriangle size={14} /> Hide Stale
-          </button>
         </div>
       </div>
 

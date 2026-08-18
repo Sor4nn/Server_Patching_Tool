@@ -163,7 +163,7 @@ export default function RepoForm() {
               </div>
               <div className="form-row">
                 <label>Password {editId && <span className="muted" style={{ fontSize: 11 }}>(leave blank to keep current)</span>}</label>
-                <input className="form-input" type="password" value={form.password} onChange={(e) => set('password', e.target.value)} />
+                <input className="form-input" type="password" value={form.password} onChange={(e) => set('password', e.target.value)} placeholder="Password" />
               </div>
             </>
           )}

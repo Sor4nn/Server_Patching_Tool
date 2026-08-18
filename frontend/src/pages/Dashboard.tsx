@@ -18,7 +18,6 @@ import {
   IconList,
   IconPlay,
   IconPlayCircle,
-  IconEdit,
   IconRefresh,
   IconChevronLeft,
   IconChevronRight,
@@ -93,9 +92,6 @@ export default function Dashboard() {
           <p className="page-sub">Overview of your PatchMon infrastructure</p>
         </div>
         <div className="flex">
-          <button type="button" className="btn btn-sm" title="Customize layout">
-            <IconEdit size={14} /> Edit dashboard
-          </button>
           <button type="button" className="btn btn-sm" onClick={() => load()} title="Refresh data">
             <IconRefresh size={14} />
           </button>

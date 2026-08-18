@@ -1,3 +1,4 @@
+/// <reference types="vitest" />
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
@@ -20,5 +21,11 @@ export default defineConfig({
       '/updateonboard': { target: 'http://localhost:61008', changeOrigin: true },
       '/updatepackages': { target: 'http://localhost:61008', changeOrigin: true },
     },
+  },
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: './src/test/setup.ts',
+    css: false,
   },
 })

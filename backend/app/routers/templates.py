@@ -57,7 +57,7 @@ class TemplateRun(BaseModel):
 def _validate(body: TemplateCreate | TemplateUpdate):
     if body.name is not None and not body.name.strip():
         raise HTTPException(status_code=400, detail="name is required")
-    if body.repo_url is not None and not body.repo_url.startswith(("http://", "https://", "git@", "ssh://")):
+    if body.repo_url is not None and not body.repo_url.startswith(("http://", "https://", "git@", "ssh://", "file://")):
         raise HTTPException(status_code=400, detail="repo_url must be a git http(s)/ssh URL")
 
 

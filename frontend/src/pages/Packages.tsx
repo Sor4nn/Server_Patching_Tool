@@ -4,7 +4,6 @@ import type { PackageAggregate, Host } from '../types'
 import {
   IconPackage,
   IconSearch,
-  IconColumns,
   IconRefresh,
 } from '../components/Icons'
 
@@ -167,10 +166,6 @@ export default function Packages() {
               <option key={h.id} value={h.id}>{h.hostname}</option>
             ))}
           </select>
-
-          <button type="button" className="btn btn-sm">
-            <IconColumns size={14} /> Columns
-          </button>
         </div>
       </div>
 
