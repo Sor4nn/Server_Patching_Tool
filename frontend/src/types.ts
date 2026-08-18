@@ -104,6 +104,7 @@ export interface PackageHost {
   availableVersion: string | null
   needsUpdate: boolean
   isSecurityUpdate: boolean
+  cves: string
 }
 
 export interface PackageAggregate {

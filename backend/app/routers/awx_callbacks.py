@@ -72,6 +72,7 @@ class PackageInfo(BaseModel):
     needs_update: Optional[bool] = None
     is_security_update: Optional[bool] = None
     category: Optional[str] = None
+    cves: Optional[str] = None
 
 
 class UpdatePackages(BaseModel):
@@ -218,11 +219,12 @@ def update_packages(body: UpdatePackages):
     for pkg in body.packages:
         conn.execute(
             "INSERT INTO host_packages (host_id, name, version, release, arch, epoch, source, installed_at, created_at, "
-            "available_version, needs_update, is_security_update, category) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
+            "available_version, needs_update, is_security_update, category, cves) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) "
             "ON CONFLICT (host_id, name, version, release, arch) DO NOTHING",
             (host_id, pkg.name, pkg.version, pkg.release, pkg.arch, pkg.epoch, pkg.source, pkg.installed_at, now,
-             pkg.available_version, int(pkg.needs_update or 0), int(pkg.is_security_update or 0), pkg.category),
+             pkg.available_version, int(pkg.needs_update or 0), int(pkg.is_security_update or 0), pkg.category,
+             pkg.cves),
         )
     conn.execute("UPDATE hosts SET updated_at = %s, last_seen = %s WHERE id = %s", (now, now, host_id))
     conn.commit()

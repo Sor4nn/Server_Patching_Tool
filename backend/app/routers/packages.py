@@ -11,6 +11,7 @@ router = APIRouter(prefix="/api/v1/packages", tags=["packages"])
 
 @router.get("")
 def list_packages(category: Optional[str] = None, search: Optional[str] = None,
+                  status: Optional[str] = None, host_id: Optional[int] = None,
                   _user: dict = Depends(current_user)):
     """Aggregate installed packages across all hosts, mirroring PatchMon's /packages.
 
@@ -30,6 +31,15 @@ def list_packages(category: Optional[str] = None, search: Optional[str] = None,
     if search:
         query += " AND p.name LIKE %s"
         params.append(f"%{search}%")
+    if host_id:
+        query += " AND p.host_id = %s"
+        params.append(host_id)
+    if status == "outdated":
+        query += " AND p.needs_update = 1"
+    elif status == "security":
+        query += " AND p.needs_update = 1 AND p.is_security_update = 1"
+    elif status == "uptodate":
+        query += " AND p.needs_update = 0"
     query += " ORDER BY p.name, h.hostname"
     rows = conn.execute(query, params).fetchall()
 
@@ -53,6 +63,7 @@ def list_packages(category: Optional[str] = None, search: Optional[str] = None,
             "availableVersion": r["available_version"],
             "needsUpdate": bool(r["needs_update"]),
             "isSecurityUpdate": bool(r["is_security_update"]),
+            "cves": r["cves"] or "",
         }
         pkg["packageHosts"].append(host_entry)
         pkg["packageHostsCount"] += 1

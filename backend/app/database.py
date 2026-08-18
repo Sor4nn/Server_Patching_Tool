@@ -96,6 +96,7 @@ CREATE TABLE IF NOT EXISTS host_packages (
     needs_update INTEGER NOT NULL DEFAULT 0,
     is_security_update INTEGER NOT NULL DEFAULT 0,
     category TEXT,
+    cves TEXT,
     UNIQUE(host_id, name, version, release, arch)
 );
 CREATE INDEX IF NOT EXISTS idx_host_packages_host ON host_packages(host_id);
@@ -265,6 +266,7 @@ def init_db():
     conn.execute("ALTER TABLE inventory_sources ADD COLUMN IF NOT EXISTS description TEXT")
     conn.execute("ALTER TABLE inventory_sources ADD COLUMN IF NOT EXISTS playbook_pattern TEXT NOT NULL DEFAULT 'ansible_scripts/*.yml'")
     conn.execute("ALTER TABLE templates ADD COLUMN IF NOT EXISTS inventory_source_id INTEGER REFERENCES inventory_sources(id) ON DELETE CASCADE")
+    conn.execute("ALTER TABLE host_packages ADD COLUMN IF NOT EXISTS cves TEXT")
     conn.commit()
 
     # Seed host groups

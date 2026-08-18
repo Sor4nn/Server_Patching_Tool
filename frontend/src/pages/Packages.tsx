@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { api } from '../api'
-import type { PackageAggregate } from '../types'
+import type { PackageAggregate, Host } from '../types'
 import {
   IconPackage,
   IconSearch,
@@ -11,14 +11,19 @@ import {
 export default function Packages() {
   const [packages, setPackages] = useState<PackageAggregate[]>([])
   const [categories, setCategories] = useState<string[]>([])
+  const [hosts, setHosts] = useState<Host[]>([])
   const [category, setCategory] = useState('')
   const [search, setSearch] = useState('')
+  const [status, setStatus] = useState('')
+  const [hostId, setHostId] = useState('')
   const [selectedPackages, setSelectedPackages] = useState<number[]>([])
 
   const load = useCallback(async () => {
     const params = new URLSearchParams()
     if (category) params.set('category', category)
     if (search) params.set('search', search)
+    if (status) params.set('status', status)
+    if (hostId) params.set('host_id', hostId)
     const q = params.toString() ? `?${params.toString()}` : ''
     const [res, cat] = await Promise.all([
       api.listPackages(q).catch(() => ({ success: false, packages: [], total: 0, categories: [] })),
@@ -26,20 +31,33 @@ export default function Packages() {
     ])
     setPackages(res.packages || [])
     setCategories(cat.categories || [])
-  }, [category, search])
+  }, [category, search, status, hostId])
 
   useEffect(() => {
     load()
   }, [load])
 
-  const totals = useMemo(() => packages.reduce(
+  useEffect(() => {
+    api.listHosts().then((r) => setHosts(r.hosts || [])).catch(() => {})
+  }, [])
+
+  const totals = useMemo(() => {
+  const outdatedHosts = new Set<number>()
+  for (const p of packages) {
+    for (const h of p.packageHosts) {
+      if (h.needsUpdate) outdatedHosts.add(h.hostId)
+    }
+  }
+  const base = packages.reduce(
     (acc, p) => ({
       total: acc.total + p.stats.totalInstalls,
       updates: acc.updates + p.stats.updatesNeeded,
       security: acc.security + p.stats.securityUpdates,
     }),
     { total: 0, updates: 0, security: 0 },
-  ), [packages])
+  )
+  return { ...base, outdatedHosts: outdatedHosts.size }
+}, [packages])
 
   const toggleSelect = (id: number) => {
     setSelectedPackages((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id])
@@ -102,7 +120,7 @@ export default function Packages() {
             <span style={{ color: 'var(--amber)' }}><IconPackage size={16} /></span>
             <span>Outdated Hosts</span>
           </div>
-          <div className="top-stat-value">0</div>
+          <div className="top-stat-value">{totals.outdatedHosts}</div>
         </div>
       </div>
 
@@ -128,15 +146,26 @@ export default function Packages() {
             {categories.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
 
-          <select style={{ width: 'auto', padding: '5px 10px', fontSize: 12 }}>
-            <option>All Packages</option>
-            <option>Up to Date</option>
-            <option>Needs Update</option>
-            <option>Security Updates</option>
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+            style={{ width: 'auto', padding: '5px 10px', fontSize: 12 }}
+          >
+            <option value="">All Packages</option>
+            <option value="uptodate">Up to Date</option>
+            <option value="outdated">Needs Update</option>
+            <option value="security">Security Updates</option>
           </select>
 
-          <select style={{ width: 'auto', padding: '5px 10px', fontSize: 12 }}>
-            <option>All Hosts</option>
+          <select
+            value={hostId}
+            onChange={(e) => setHostId(e.target.value)}
+            style={{ width: 'auto', padding: '5px 10px', fontSize: 12 }}
+          >
+            <option value="">All Hosts</option>
+            {hosts.map((h) => (
+              <option key={h.id} value={h.id}>{h.hostname}</option>
+            ))}
           </select>
 
           <button type="button" className="btn btn-sm">
@@ -163,13 +192,14 @@ export default function Packages() {
                 <th>Installed On ⇅</th>
                 <th>Status ⇅</th>
                 <th>Latest Version ⇅</th>
+                <th>CVE</th>
                 <th>SOURCE REPOS</th>
               </tr>
             </thead>
             <tbody>
               {packages.length === 0 && (
                 <tr>
-                  <td colSpan={6} style={{ textAlign: 'center', padding: 32 }} className="muted">
+                  <td colSpan={7} style={{ textAlign: 'center', padding: 32 }} className="muted">
                     No packages found. Connect a host and collect package data.
                   </td>
                 </tr>
@@ -199,6 +229,24 @@ export default function Packages() {
                     )}
                   </td>
                   <td className="mono muted">{p.latest_version || 'N/A'}</td>
+                  <td>
+                    {(() => {
+                      const cves = p.packageHosts.flatMap((h) => h.cves ? h.cves.split(',').map((c) => c.trim()) : [])
+                      const unique = [...new Set(cves)].filter(Boolean)
+                      return unique.length > 0 ? (
+                        <div className="flex" style={{ gap: 4, flexWrap: 'wrap' }}>
+                          {unique.slice(0, 4).map((c) => (
+                            <span key={c} className="badge badge-red" style={{ fontSize: 10.5 }}>
+                              {c}
+                            </span>
+                          ))}
+                          {unique.length > 4 && <span className="muted">+{unique.length - 4}</span>}
+                        </div>
+                      ) : (
+                        <span className="muted">—</span>
+                      )
+                    })()}
+                  </td>
                   <td>
                     {p.sourceRepos && p.sourceRepos.length > 0 ? (
                       p.sourceRepos.map((r, idx) => (
