@@ -32,7 +32,7 @@
             pkg['needs_update'] = name in updates_map
             pkg['is_security_update'] = name in sec_set
         print(json.dumps(installed))"
-      become: yes
+      become: no
       register: pkgs_json
       ignore_errors: yes
 

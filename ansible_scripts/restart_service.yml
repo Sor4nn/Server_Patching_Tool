@@ -13,7 +13,7 @@
 
     - name: Capture post-restart status
       command: "systemctl show {{ target_service }} -p LoadState,ActiveState,SubState --value"
-      become: yes
+      become: no
       register: status_after
       ignore_errors: yes
 

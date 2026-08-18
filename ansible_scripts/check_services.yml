@@ -19,7 +19,7 @@
                 ls, as_, ss = 'error', 'unknown', 'unknown'
             out.append({'service_name': s, 'load_state': ls, 'active_state': as_, 'sub_state': ss})
         print(json.dumps(out))"
-      become: yes
+      become: no
       register: services_json
       ignore_errors: yes
 
@@ -42,7 +42,7 @@
                 use_int = 0
             out.append({'mount': mount, 'device': device, 'fs_type': '', 'size_kb': int(size), 'used_kb': int(used), 'avail_kb': int(avail), 'use_pct': use_int})
         print(json.dumps(out))"
-      become: yes
+      become: no
       register: fs_json
       ignore_errors: yes
 
