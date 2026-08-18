@@ -9,7 +9,6 @@ Rebuilt from the ground up as a two-tier application:
 - **`backend/`** — FastAPI REST API (`/api/v1/*`): session auth, dashboard stats, hosts, host groups, users, patching (AWX orchestration). Also serves the built frontend in production.
 - **`frontend/`** — React + Vite + TypeScript SPA (dark sidebar layout): Login, Dashboard, Hosts (+detail), Host Groups, Patching, Users.
 - **`ansible_scripts/`** — AWX playbooks consumed by AWX projects.
-- **`legacy/`** — Archived original Django portal + old FastAPI endpoints (kept for reference; not part of the app).
 
 ### Backward-compatible AWX callbacks
 

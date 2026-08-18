@@ -13,7 +13,6 @@ node_modules/
 patchautomation_portal/patchservers/pass.txt
 
 # Database - generated/migrated at runtime
-database/*.sqlite3
 data/
 
 # Frontend build
@@ -30,9 +29,6 @@ logs/
 .env
 .env.*
 !.env.example
-
-# Legacy archived code
-legacy/
 
 # OS
 .DS_Store
